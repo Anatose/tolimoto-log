@@ -4,6 +4,7 @@ import { PRESETS, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DeleteBtn, Field, IconFuel, IconWrench, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
+import { addFuellyRows, guessType, lumpOverlaps, parseFuelly, type FuellyCar, type FuelOverlap } from './fuelly'
 
 export const COLORS = ['#4C9AFF', '#FF8A3D', '#3DDC84', '#C77DFF', '#FF5A8A', '#FFD23F']
 const CATS: Category[] = ['service', 'consumables', 'repair', 'accessories']
@@ -39,6 +40,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
   const [preset, setPreset] = useState<'typical' | 'empty'>('typical')
   const file = useRef<HTMLInputElement>(null)
   const [err, setErr] = useState(false)
+  const fuellyFile = useRef<HTMLInputElement>(null)
   const valid = name.trim().length > 0
   const save = () => {
     const vid = ed?.id ?? uid()
@@ -105,6 +107,8 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
         <>
           <button type="button" className="btn link" onClick={() => file.current?.click()}>{t('importJson')}</button>
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { importJson(await f.text()) } catch { setErr(true) } }} />
+          <button type="button" className="btn link" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
+          <input ref={fuellyFile} type="file" accept=".csv,text/csv,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { nav.open({ k: 'fuelly', cars: parseFuelly(await f.text()) }) } catch { setErr(true) } e.target.value = '' }} />
           {err && <div className="notice warn" role="status">{t('importErr')}</div>}
         </>
       )}
@@ -535,6 +539,16 @@ export function SettingsSheet() {
     }
     if (file.current) file.current.value = ''
   }
+  const fuellyFile = useRef<HTMLInputElement>(null)
+  const onFuelly = async (f: File | undefined) => {
+    if (!f) return
+    try {
+      nav.open({ k: 'fuelly', cars: parseFuelly(await f.text()) })
+    } catch {
+      setMsg(t('fuellyBad'))
+    }
+    if (fuellyFile.current) fuellyFile.current.value = ''
+  }
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches
   return (
     <Sheet title={t('settings')}>
@@ -559,12 +573,94 @@ export function SettingsSheet() {
       <button type="button" className="btn" onClick={() => doExport('json')}>{t('exportJson')}</button>
       <button type="button" className="btn" onClick={() => file.current?.click()}>{t('importJson')}</button>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+      <button type="button" className="btn" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
+      <input ref={fuellyFile} type="file" accept=".csv,text/csv,text/plain" hidden onChange={(e) => onFuelly(e.target.files?.[0])} />
       {msg && <div className="notice" role="status">{msg}</div>}
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <p className="muted">{t('googleLater')}</p>
-      <p className="muted">Tolimoto Log · {t('version')} 0.1.0</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.2.0</p>
     </Sheet>
   )
 }
 
+
+/* ---------- Fuelly import ---------- */
+
+export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
+  const db = useDB()
+  const { t, n, date } = useT()
+  const nav = useNav()
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9а-яё]/g, '')
+  const match = (c: FuellyCar) =>
+    db.vehicles.find((v) => { const a = norm(v.name); const b = norm(c.name + ' ' + c.model); return a.length > 2 && (b.includes(a) || a.includes(norm(c.name))) })?.id ?? 'new'
+  const [target, setTarget] = useState<string[]>(() => cars.map(match))
+  const [types, setTypes] = useState<VType[]>(() => cars.map(guessType))
+  const [result, setResult] = useState<{ added: number; replaced: number; overlaps: FuelOverlap[]; vids: string[] } | null>(null)
+  const run = () => {
+    let added = 0
+    let replaced = 0
+    const vids: string[] = []
+    update((d) => {
+      cars.forEach((c, i) => {
+        if (target[i] === 'skip') return
+        let vid = target[i]
+        if (vid === 'new') {
+          vid = uid()
+          const used = new Set(d.vehicles.map((v) => v.color.toLowerCase()))
+          d.vehicles.push({ id: vid, name: c.model || c.name, type: types[i], color: COLORS.find((x) => !used.has(x.toLowerCase())) ?? COLORS[0], currency: '€', odometer: c.rows[c.rows.length - 1]?.odometer ?? 0 })
+        }
+        const r = addFuellyRows(d, vid, c)
+        added += r.added
+        replaced += r.replaced
+        vids.push(vid)
+        d.settings.activeVehicleId = vid
+      })
+    })
+    setResult({ added, replaced, vids, overlaps: [] })
+  }
+  const overlaps = result ? result.vids.flatMap((v) => lumpOverlaps(db, v)) : []
+  if (result) {
+    return (
+      <Sheet title={t('fuellyTitle')}>
+        <div className="notice" role="status"><span>{t('fuellyDone')} <b>{result.added}</b>{result.replaced ? `, ${t('fuellyUpdated')}: ${result.replaced}` : ''}</span></div>
+        {overlaps.map((o) => {
+          const v = db.vehicles.find((x) => db.expenses.some((e) => e.id === o.expenseId && e.vehicleId === x.id))
+          return (
+            <div className="card" key={o.expenseId}>
+              <span>{t('fuellyLump')}</span>
+              <span className="num"><b>{v?.name} · {o.year}</b>: {n(o.amount, 2)} {v?.currency} · {t('fromFuelly')}: {n(o.fuellySum, 2)} {v?.currency}</span>
+              <button type="button" className="btn outline" onClick={() => update((d) => { d.expenses = d.expenses.filter((e) => e.id !== o.expenseId) })}>{t('fuellyLumpDel')}</button>
+            </div>
+          )
+        })}
+        <div className="spacer" />
+        <button type="button" className="btn primary big" onClick={nav.close}>{t('gotIt')}</button>
+      </Sheet>
+    )
+  }
+  return (
+    <Sheet title={t('fuellyTitle')}>
+      {cars.map((c, i) => (
+        <div className="card" key={c.name}>
+          <b>{c.model || c.name}</b>
+          <span className="muted small num">{c.rows.length} {t('fuellyRows')} · {date(c.rows[0].date)} – {date(c.rows[c.rows.length - 1].date)} · {n(c.rows[0].odometer)}–{n(c.rows[c.rows.length - 1].odometer)} {t('km')}</span>
+          {c.converted && <span className="small">{t('fuellyMiles')}</span>}
+          <label className="field">
+            <span className="label">{t('fuellyTo')}</span>
+            <select className="input" value={target[i]} onChange={(e) => setTarget((a) => a.map((x, j) => (j === i ? e.target.value : x)))}>
+              {db.vehicles.map((v) => (<option key={v.id} value={v.id}>{v.name}</option>))}
+              <option value="new">{t('fuellyNew')}: {c.model || c.name}</option>
+              <option value="skip">{t('fuellySkip')}</option>
+            </select>
+          </label>
+          {target[i] === 'new' && (
+            <Chips label={t('type')} value={types[i]} onChange={(v) => setTypes((a) => a.map((x, j) => (j === i ? v : x)))} options={[{ v: 'moto', l: t('moto') }, { v: 'car', l: t('car') }]} />
+          )}
+        </div>
+      ))}
+      <div className="spacer" />
+      <button type="button" className="btn primary big" disabled={target.every((x) => x === 'skip')} onClick={run}>{t('fuellyGo')}</button>
+    </Sheet>
+  )
+}

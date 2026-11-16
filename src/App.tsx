@@ -3,7 +3,7 @@ import { useDB, useLoaded } from './store'
 import { useT } from './i18n'
 import { IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, Stats } from './Screens'
-import { AddMenu, ExpenseForm, FuelForm, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
+import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
 
 type Tab = 'home' | 'journal' | 'sched' | 'stats'
 
@@ -18,6 +18,7 @@ function ModalHost({ m }: { m: NonNullable<Modal> }) {
     case 'sched': return <SchedForm id={m.id} />
     case 'history': return <History tag={m.tag} vid={m.vid} />
     case 'settings': return <SettingsSheet />
+    case 'fuelly': return <FuellyImport cars={m.cars} />
   }
 }
 
@@ -51,7 +52,8 @@ export default function App() {
 
   if (!loaded) return <div className="center-screen"><h1>Tolimoto Log</h1></div>
   if (!db.settings.lang) return <LangPick />
-  if (!db.vehicles.length) return (<NavCtx.Provider value={nav}><VehicleForm first /></NavCtx.Provider>)
+  if (!db.vehicles.length)
+    return (<NavCtx.Provider value={nav}>{modal?.k === 'fuelly' ? <FuellyImport cars={modal.cars} /> : <VehicleForm first />}</NavCtx.Provider>)
 
   const tabBtn = (k: Tab, label: string) => (
     <button type="button" className={'tab' + (tab === k ? ' on' : '')} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>{label}</button>
@@ -72,7 +74,7 @@ export default function App() {
           {tabBtn('sched', t('tabSched'))}
           {tabBtn('stats', t('tabStats'))}
         </nav>
-        {modal && <ModalHost key={JSON.stringify(modal)} m={modal} />}
+        {modal && <ModalHost key={modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal)} m={modal} />}
       </div>
     </NavCtx.Provider>
   )

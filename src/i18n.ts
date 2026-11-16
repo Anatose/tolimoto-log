@@ -158,6 +158,20 @@ export const S = {
     'Google sign-in and spreadsheet sync arrive in the next version.',
   ],
   move: ['Транспорт записи', 'Vehicle for this record'],
+  importFuelly: ['Импорт из Fuelly (CSV)', 'Import from Fuelly (CSV)'],
+  fuellyTitle: ['Импорт из Fuelly', 'Import from Fuelly'],
+  fuellyRows: ['заправок', 'fill-ups'],
+  fuellyTo: ['Куда добавить', 'Add to'],
+  fuellyNew: ['Новый транспорт', 'New vehicle'],
+  fuellySkip: ['Не импортировать', 'Skip'],
+  fuellyMiles: ['Мили и галлоны пересчитаны в км и литры.', 'Miles and gallons converted to km and litres.'],
+  fuellyGo: ['Импортировать', 'Import'],
+  fuellyDone: ['Готово. Добавлено заправок:', 'Done. Fill-ups added:'],
+  fuellyUpdated: ['обновлено', 'updated'],
+  fuellyLump: ['За этот год уже есть топливо общей суммой — оно посчитается дважды:', 'This year also has fuel as a lump sum — it would be counted twice:'],
+  fuellyLumpDel: ['Удалить общую сумму', 'Delete the lump sum'],
+  fuellyBad: ['Это не похоже на экспорт Fuelly.', 'This does not look like a Fuelly export.'],
+  fromFuelly: ['по заправкам', 'from fill-ups'],
 } as const satisfies Record<string, readonly [string, string]>
 
 export type K = keyof typeof S

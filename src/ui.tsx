@@ -13,6 +13,7 @@ export type Modal =
   | { k: 'sched'; id?: string }
   | { k: 'history'; tag: string; vid: string }
   | { k: 'settings' }
+  | { k: 'fuelly'; cars: import('./fuelly').FuellyCar[] }
   | null
 
 export const NavCtx = createContext<{ open: (m: Modal) => void; close: () => void }>({ open() {}, close() {} })
