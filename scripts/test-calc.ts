@@ -32,10 +32,10 @@ const db = JSON.parse(readFileSync(backup, 'utf8')) as DB
 const vid = db.vehicles[0].id
 eq('current odometer', currentOdo(db, vid), 45800)
 const st = (tag: string) => { const x = schedState(db, db.schedule.find((i) => i.tag === tag)!, '2026-11-16'); return [x.remKm, x.remDays, x.status] }
-eq('engine oil', st('engineoil'), [2200, 289, 'ok'])
-eq('air filter', st('airfilter'), [1200, 623, 'soon'])
-eq('dct filter', st('dct'), [4200, 472, 'ok'])
-eq('valves', st('valves'), [10200, null, 'ok'])
+eq('engine oil', st('engineoil'), [1500, 289, 'ok'])
+eq('air filter', st('airfilter'), [4800, 623, 'ok'])
+eq('dct filter', st('dct'), [9250, 472, 'ok'])
+eq('valves', st('valves'), [13440, null, 'ok'])
 eq('brake fluid', st('brakefluid'), [null, 654, 'ok'])
 eq('coolant', st('coolant'), [null, 988, 'ok'])
 eq('total 2026', +totals(db, vid, 2026).total.toFixed(2), 2279.35)
