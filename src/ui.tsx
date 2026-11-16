@@ -13,10 +13,13 @@ export type Modal =
   | { k: 'sched'; id?: string }
   | { k: 'history'; tag: string; vid: string }
   | { k: 'settings' }
+  | { k: 'spend'; vid: string; year: number | null; bucket: Bucket }
   | { k: 'fuelly'; cars: import('./fuelly').FuellyCar[] }
   | null
 
-export const NavCtx = createContext<{ open: (m: Modal) => void; close: () => void }>({ open() {}, close() {} })
+export type Bucket = 'all' | 'service' | 'accessories' | 'fuel' | 'other'
+/** open replaces the top screen, push opens on top of it, close goes back one level. */
+export const NavCtx = createContext<{ open: (m: Modal) => void; push: (m: Modal) => void; close: () => void }>({ open() {}, push() {}, close() {} })
 export const useNav = () => useContext(NavCtx)
 
 export const parseNum = (s: string): number | null => {

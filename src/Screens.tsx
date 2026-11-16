@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { activeId, storageMode, today, update, useDB } from './store'
 import { useT, type K } from './i18n'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals, years, type SchedState } from './calc'
-import { Badge, Bar, Chips, IconCar, IconFuel, IconGear, IconMoto, useNav } from './ui'
+import { Badge, Bar, Chips, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
 
 function useRem() {
   const { t, n } = useT()
@@ -116,7 +116,7 @@ export function Home({ goSched }: { goSched: () => void }) {
         </button>
       ))}
       <div className="grid2">
-        <div className="card tile"><span className="label">{t('spent')} {year}</span><b className="num">{n(tot.total, 0)} {v.currency}</b></div>
+        <button type="button" className="card tile row-btn" onClick={() => nav.push({ k: 'spend', vid, year, bucket: 'all' })}><span className="label">{t('spent')} {year} ›</span><b className="num">{n(tot.total, 0)} {v.currency}</b></button>
         <div className="card tile"><span className="label">{t('avgCons')}</span>{avg != null ? <b className="num">{n(avg, 1)} <small>{t('l100')}</small></b> : <span className="small">{t('avgConsEmpty')}</span>}</div>
       </div>
     </>
@@ -125,59 +125,120 @@ export function Home({ goSched }: { goSched: () => void }) {
 
 /* ---------- journal ---------- */
 
-type Row = { id: string; kind: 'service' | 'fuel' | 'expense'; date: string; odo: number | null; title: string; sub: string; amount: number | null; tags: string[]; text: string }
+type Row = { id: string; kind: 'service' | 'fuel' | 'expense'; bucket: Exclude<Bucket, 'all'>; date: string; odo: number | null; title: string; sub: string; amount: number | null; tags: string[]; text: string; l100: number | null }
+
+/** All records of one vehicle as list rows, newest first. */
+function useRows(vid: string | null): { rows: Row[]; avg: number | null } {
+  const db = useDB()
+  const { t, n } = useT()
+  return useMemo(() => {
+    if (!vid) return { rows: [], avg: null }
+    const segs = fuelSegments(db.fuel.filter((f) => f.vehicleId === vid))
+    const seg = new Map(segs.map((x) => [x.id, x.l100]))
+    const r: Row[] = []
+    for (const s of db.service) if (s.vehicleId === vid)
+      r.push({ id: s.id, kind: 'service', bucket: s.category === 'accessories' ? 'accessories' : 'service', date: s.date, odo: s.odometer, title: s.description || s.tags.map((g) => '#' + g).join(' '), sub: [t(('cat_' + s.category) as K), s.notes].filter(Boolean).join(' · '), amount: s.parts != null || s.labour != null ? (s.parts ?? 0) + (s.labour ?? 0) : null, tags: s.tags, text: [s.description, s.notes, s.tags.join(' '), s.media].join(' ').toLowerCase(), l100: null })
+    for (const f of db.fuel) if (f.vehicleId === vid)
+      r.push({ id: f.id, kind: 'fuel', bucket: 'fuel', date: f.date, odo: f.odometer, title: `${t('fuel')} · ${n(f.liters, 2)} ${t('liters').toLowerCase()}`, sub: [f.full ? t('fullTank') : '', f.station].filter(Boolean).join(' · '), amount: f.total, tags: [], text: (t('fuel') + ' ' + f.station).toLowerCase(), l100: seg.get(f.id) ?? null })
+    for (const e of db.expenses) if (e.vehicleId === vid)
+      r.push({ id: e.id, kind: 'expense', bucket: e.kind === 'fuel' ? 'fuel' : 'other', date: e.date, odo: null, title: t(('kind_' + e.kind) as K), sub: e.note, amount: e.amount, tags: [], text: (t(('kind_' + e.kind) as K) + ' ' + e.note).toLowerCase(), l100: null })
+    r.sort((a, b) => b.date.localeCompare(a.date) || (b.odo ?? 0) - (a.odo ?? 0))
+    return { rows: r, avg: avgL100(segs) }
+  }, [db, vid, t, n])
+}
+
+/** Consumption of the leg ending at this fill-up; green when 10 % or more below the average, red when 10 % or more above. */
+function Cons({ l100, avg }: { l100: number; avg: number | null }) {
+  const { t, n } = useT()
+  const cls = avg == null ? '' : l100 <= avg * 0.9 ? 'low' : l100 >= avg * 1.1 ? 'high' : ''
+  return (
+    <span className={'cons num ' + cls}>
+      {cls === 'low' && <span aria-hidden="true">▼ </span>}
+      {cls === 'high' && <span aria-hidden="true">▲ </span>}
+      {n(l100, 1)} {t('l100')}
+      {cls && <span className="sr-only"> ({t(cls === 'low' ? 'consLow' : 'consHigh')})</span>}
+    </span>
+  )
+}
+
+function RowCard({ r, avg, currency }: { r: Row; avg: number | null; currency: string }) {
+  const { t, n, date } = useT()
+  const nav = useNav()
+  return (
+    <button type="button" className="card row-btn" onClick={() => nav.push({ k: r.kind, id: r.id })}>
+      <span className="split"><span className="muted num">{date(r.date)}{r.odo != null ? ` · ${n(r.odo)} ${t('km')}` : ''}</span>{r.amount != null && <b className="num">{n(r.amount, 2)} {currency}</b>}</span>
+      <span className="split"><span>{r.title}</span>{r.l100 != null && <Cons l100={r.l100} avg={avg} />}</span>
+      {r.tags.length > 0 && <span className="tagline">{r.tags.map((g) => '#' + g).join(' ')}</span>}
+      {r.sub && <span className="muted small">{r.sub}</span>}
+    </button>
+  )
+}
 
 export function Journal() {
   const db = useDB()
-  const { t, n, date } = useT()
-  const nav = useNav()
+  const { t, n } = useT()
   const vid = activeId(db)
   const v = db.vehicles.find((x) => x.id === vid)
   const [q, setQ] = useState('')
   const [kind, setKind] = useState<'all' | 'service' | 'fuel' | 'expense'>('all')
-  const [year, setYear] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [tag, setTag] = useState('')
-  const rows = useMemo<Row[]>(() => {
-    if (!vid) return []
-    const r: Row[] = []
-    for (const s of db.service) if (s.vehicleId === vid)
-      r.push({ id: s.id, kind: 'service', date: s.date, odo: s.odometer, title: s.description || s.tags.map((g) => '#' + g).join(' '), sub: [t(('cat_' + s.category) as K), s.notes].filter(Boolean).join(' · '), amount: s.parts != null || s.labour != null ? (s.parts ?? 0) + (s.labour ?? 0) : null, tags: s.tags, text: [s.description, s.notes, s.tags.join(' '), s.media].join(' ').toLowerCase() })
-    for (const f of db.fuel) if (f.vehicleId === vid)
-      r.push({ id: f.id, kind: 'fuel', date: f.date, odo: f.odometer, title: `${t('fuel')} · ${n(f.liters, 2)} ${t('liters').toLowerCase()}`, sub: [f.full ? t('fullTank') : '', f.station].filter(Boolean).join(' · '), amount: f.total, tags: [], text: (t('fuel') + ' ' + f.station).toLowerCase() })
-    for (const e of db.expenses) if (e.vehicleId === vid)
-      r.push({ id: e.id, kind: 'expense', date: e.date, odo: null, title: t(('kind_' + e.kind) as K), sub: e.note, amount: e.amount, tags: [], text: (t(('kind_' + e.kind) as K) + ' ' + e.note).toLowerCase() })
-    return r.sort((a, b) => b.date.localeCompare(a.date) || (b.odo ?? 0) - (a.odo ?? 0))
-  }, [db, vid, t, n])
+  const { rows, avg } = useRows(vid)
   if (!v || !vid) return null
-  const allYears = [...new Set(rows.map((r) => r.date.slice(0, 4)))].sort().reverse()
   const allTags = [...new Set(rows.flatMap((r) => r.tags))].sort()
   const qq = q.trim().toLowerCase()
-  const shown = rows.filter((r) => (kind === 'all' || r.kind === kind) && (!year || r.date.startsWith(year)) && (!tag || r.tags.includes(tag)) && (!qq || r.text.includes(qq)))
+  const shown = rows.filter((r) => (kind === 'all' || r.kind === kind) && (!from || r.date >= from) && (!to || r.date <= to) && (!tag || r.tags.includes(tag)) && (!qq || r.text.includes(qq)))
+  const sum = shown.reduce((s, r) => s + (r.amount ?? 0), 0)
   return (
     <>
       <h1>{t('tabJournal')} <small className="muted">· {v.name}</small></h1>
       <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
       <Chips value={kind} onChange={setKind} options={[{ v: 'all', l: t('all') }, { v: 'service', l: t('fWork') }, { v: 'fuel', l: t('fFuel') }, { v: 'expense', l: t('fExp') }]} />
       <div className="grid2">
-        <select className="input" value={year} onChange={(e) => setYear(e.target.value)} aria-label={t('allYears')}>
-          <option value="">{t('allYears')}</option>
-          {allYears.map((y) => (<option key={y} value={y}>{y}</option>))}
-        </select>
+        <label className="field"><span className="label">{t('dateFrom')}</span><input className="input" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label className="field"><span className="label">{t('dateTo')}</span><input className="input" type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
+      </div>
+      {(from || to) && <button type="button" className="btn link" onClick={() => { setFrom(''); setTo('') }}>{t('resetDates')}</button>}
+      {allTags.length > 0 && (
         <select className="input" value={tag} onChange={(e) => setTag(e.target.value)} aria-label={t('allTags')}>
           <option value="">{t('allTags')}</option>
           {allTags.map((g) => (<option key={g} value={g}>#{g}</option>))}
         </select>
-      </div>
+      )}
+      {shown.length > 0 && (
+        <p className="muted small num split">
+          <span>{shown.length} · {n(sum, 2)} {v.currency}</span>
+          {kind === 'fuel' && avg != null && <span>{t('avgFor')}: {n(avg, 1)} {t('l100')}</span>}
+        </p>
+      )}
       {shown.length === 0 && <p className="muted">{t('emptyJournal')}</p>}
-      {shown.map((r) => (
-        <button type="button" key={r.kind + r.id} className="card row-btn" onClick={() => nav.open({ k: r.kind, id: r.id })}>
-          <span className="split"><span className="muted num">{date(r.date)}{r.odo != null ? ` · ${n(r.odo)} ${t('km')}` : ''}</span>{r.amount != null && <b className="num">{n(r.amount, 2)} {v.currency}</b>}</span>
-          <span>{r.title}</span>
-          {r.tags.length > 0 && <span className="tagline">{r.tags.map((g) => '#' + g).join(' ')}</span>}
-          {r.sub && <span className="muted small">{r.sub}</span>}
-        </button>
-      ))}
+      {shown.map((r) => (<RowCard key={r.kind + r.id} r={r} avg={avg} currency={v.currency} />))}
     </>
+  )
+}
+
+/* ---------- spending list (from Garage and Stats) ---------- */
+
+const BUCKET_LABEL: Record<Bucket, K> = { all: 'allBuckets', service: 'stService', accessories: 'stAcc', fuel: 'stFuel', other: 'stOther' }
+
+export function SpendList({ vid, year, bucket }: { vid: string; year: number | null; bucket: Bucket }) {
+  const db = useDB()
+  const { t, n } = useT()
+  const [b, setB] = useState<Bucket>(bucket)
+  const { rows, avg } = useRows(vid)
+  const v = db.vehicles.find((x) => x.id === vid)
+  if (!v) return null
+  const inPeriod = rows.filter((r) => r.amount != null && r.amount !== 0 && (year == null || r.date.startsWith(String(year))))
+  const shown = inPeriod.filter((r) => b === 'all' || r.bucket === b)
+  const sum = shown.reduce((s, r) => s + (r.amount ?? 0), 0)
+  return (
+    <Sheet title={`${t('spentList')} ${year ?? t('all').toLowerCase()} · ${v.name}`} color={v.color}>
+      <Chips value={b} onChange={setB} options={(['all', 'service', 'accessories', 'fuel', 'other'] as Bucket[]).map((x) => ({ v: x, l: t(BUCKET_LABEL[x]) }))} />
+      <div className="total-row"><b>{t('statsTotal')}</b><b className="num">{n(sum, 2)} {v.currency}</b></div>
+      {shown.length === 0 && <p className="muted">{t('noSpend')}</p>}
+      {shown.map((r) => (<RowCard key={r.kind + r.id} r={r} avg={avg} currency={v.currency} />))}
+    </Sheet>
   )
 }
 
@@ -256,6 +317,7 @@ function LineChart({ points, label, unit, digits }: { points: number[]; label: s
 export function Stats() {
   const db = useDB()
   const { t, n } = useT()
+  const nav = useNav()
   const vid = activeId(db)
   const v = db.vehicles.find((x) => x.id === vid)
   const thisYear = Number(today().slice(0, 4))
@@ -268,19 +330,20 @@ export function Stats() {
   const avg = avgL100(segs)
   const perKm = costPerKm(db, vid)
   const prices = [...fuel].sort((a, b) => a.date.localeCompare(b.date) || a.odometer - b.odometer).filter((f) => f.liters > 0).map((f) => f.total / f.liters)
-  const rows: [K, number][] = [['stService', tot.service], ['stAcc', tot.accessories], ['stFuel', tot.fuel], ['stOther', tot.other]]
+  const rows: [Exclude<Bucket, 'all'>, number][] = [['service', tot.service], ['accessories', tot.accessories], ['fuel', tot.fuel], ['other', tot.other]]
+  const y = year === 'all' ? null : Number(year)
   return (
     <>
       <h1>{t('tabStats')} <small className="muted">· {v.name}</small></h1>
       <Chips value={year} onChange={setYear} options={[...ys.map((y) => ({ v: String(y), l: String(y) })), { v: 'all', l: t('all') }]} />
       <div className="card">
         {rows.map(([k, x]) => (
-          <div className="stat-row" key={k}>
-            <span className="split"><span>{t(k)}</span><b className="num">{n(x, 2)} {v.currency}</b></span>
+          <button type="button" className="stat-row row-btn bare" key={k} onClick={() => nav.push({ k: 'spend', vid, year: y, bucket: k })}>
+            <span className="split"><span>{t(BUCKET_LABEL[k])} ›</span><b className="num">{n(x, 2)} {v.currency}</b></span>
             <div className="bar"><div className="ac" style={{ width: (tot.total ? Math.round((x / tot.total) * 100) : 0) + '%' }} /></div>
-          </div>
+          </button>
         ))}
-        <span className="split total-row"><b>{t('statsTotal')}</b><b className="num">{n(tot.total, 2)} {v.currency}</b></span>
+        <button type="button" className="row-btn bare total-row" onClick={() => nav.push({ k: 'spend', vid, year: y, bucket: 'all' })}><b>{t('statsTotal')} ›</b><b className="num">{n(tot.total, 2)} {v.currency}</b></button>
       </div>
       <div className="grid2">
         <div className="card tile"><span className="label">{t('perKm')}</span><b className="num">{perKm != null ? `${n(perKm, 2)} ${v.currency}` : '—'}</b><span className="muted small">{t('perKmNote')}</span></div>

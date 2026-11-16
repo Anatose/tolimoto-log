@@ -1,6 +1,6 @@
 # Tolimoto Log
 
-Vehicle maintenance and fuel log. Installable web app (PWA), iPhone first. Version 0.2.0: local mode only, with import from Fuelly CSV.
+Vehicle maintenance and fuel log. Installable web app (PWA), iPhone first. Version 0.3.0: local mode only, with import from Fuelly CSV.
 
 ## Run
 

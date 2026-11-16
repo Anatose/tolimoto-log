@@ -485,7 +485,7 @@ export function History({ tag, vid }: { tag: string; vid: string }) {
     <Sheet title={`${t('history')} · ${item?.name ?? '#' + tag}`} color={v?.color}>
       {list.length === 0 && <p className="muted">{t('none')}</p>}
       {list.map((e) => (
-        <button type="button" key={e.id} className="card row-btn" onClick={() => nav.open({ k: 'service', id: e.id })}>
+        <button type="button" key={e.id} className="card row-btn" onClick={() => nav.push({ k: 'service', id: e.id })}>
           <span className="split"><b>{date(e.date)}</b><span className="num">{e.odometer != null ? `${n(e.odometer)} ${t('km')}` : ''}</span></span>
           <span>{e.description}</span>
           {e.notes && <span className="muted">{e.notes}</span>}
@@ -563,11 +563,11 @@ export function SettingsSheet() {
       <Toggle label={t('startOnFuel')} checked={db.settings.startOnFuel} onChange={(v) => update((d) => { d.settings.startOnFuel = v })} />
       <h3>{t('vehicles')}</h3>
       {db.vehicles.map((v) => (
-        <button type="button" key={v.id} className="card row-btn inline-row" onClick={() => nav.open({ k: 'vehicle', id: v.id })}>
+        <button type="button" key={v.id} className="card row-btn inline-row" onClick={() => nav.push({ k: 'vehicle', id: v.id })}>
           <span className="dot" style={{ background: v.color }} /> <b>{v.name}</b> <span className="muted">{t(v.type)}</span>
         </button>
       ))}
-      <button type="button" className="btn" onClick={() => nav.open({ k: 'vehicle' })}>+ {t('addVehicle')}</button>
+      <button type="button" className="btn" onClick={() => nav.push({ k: 'vehicle' })}>+ {t('addVehicle')}</button>
       <h3>{t('data')}</h3>
       <button type="button" className="btn" onClick={() => doExport('csv')}>{t('exportCsv')}</button>
       <button type="button" className="btn" onClick={() => doExport('json')}>{t('exportJson')}</button>
@@ -579,7 +579,7 @@ export function SettingsSheet() {
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <p className="muted">{t('googleLater')}</p>
-      <p className="muted">Tolimoto Log · {t('version')} 0.2.0</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.3.0</p>
     </Sheet>
   )
 }

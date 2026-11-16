@@ -119,3 +119,12 @@ small { font-size: 0.6em; font-weight: 500; color: var(--mu); }
 .switch.on span { background: var(--on); }
 .notice { background: var(--sf); border: 1.5px solid var(--ac); border-radius: 12px; padding: 10px 14px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .notice.warn { border-color: var(--soon); }
+
+.cons { font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--mu); }
+.cons.low { color: var(--ok); }
+.cons.high { color: var(--over); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.row-btn.bare.stat-row, .row-btn.bare.total-row { width: 100%; text-align: left; color: var(--tx); font-size: inherit; }
+.row-btn.bare.total-row { flex-direction: row; justify-content: space-between; border-top: 1px solid var(--sf2); padding-top: 10px; }
+button.tile { align-items: flex-start; }
+p.split { display: flex; }

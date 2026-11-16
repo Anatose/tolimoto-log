@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDB, useLoaded } from './store'
 import { useT } from './i18n'
 import { IconPlus, NavCtx, type Modal } from './ui'
-import { Home, Journal, Schedule, Stats } from './Screens'
+import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
 import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
 
 type Tab = 'home' | 'journal' | 'sched' | 'stats'
@@ -18,6 +18,7 @@ function ModalHost({ m }: { m: NonNullable<Modal> }) {
     case 'sched': return <SchedForm id={m.id} />
     case 'history': return <History tag={m.tag} vid={m.vid} />
     case 'settings': return <SettingsSheet />
+    case 'spend': return <SpendList vid={m.vid} year={m.year} bucket={m.bucket} />
     case 'fuelly': return <FuellyImport cars={m.cars} />
   }
 }
@@ -27,9 +28,14 @@ export default function App() {
   const db = useDB()
   const { t } = useT()
   const [tab, setTab] = useState<Tab>('home')
-  const [modal, setModal] = useState<Modal>(null)
+  const [stack, setStack] = useState<NonNullable<Modal>[]>([])
+  const modal = stack.length ? stack[stack.length - 1] : null
   const started = useRef(false)
-  const nav = useMemo(() => ({ open: (m: Modal) => setModal(m), close: () => setModal(null) }), [])
+  const nav = useMemo(() => ({
+    open: (m: Modal) => setStack((s) => (m ? [...s.slice(0, -1), m] : s.slice(0, -1))),
+    push: (m: Modal) => setStack((s) => (m ? [...s, m] : s)),
+    close: () => setStack((s) => s.slice(0, -1)),
+  }), [])
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)')
@@ -47,7 +53,7 @@ export default function App() {
   useEffect(() => {
     if (!loaded || started.current) return
     started.current = true
-    if (db.settings.startOnFuel && db.vehicles.length) setModal({ k: 'fuel' })
+    if (db.settings.startOnFuel && db.vehicles.length) setStack([{ k: 'fuel' }])
   }, [loaded, db.settings.startOnFuel, db.vehicles.length])
 
   if (!loaded) return <div className="center-screen"><h1>Tolimoto Log</h1></div>
@@ -70,11 +76,11 @@ export default function App() {
         <nav className="nav">
           {tabBtn('home', t('tabHome'))}
           {tabBtn('journal', t('tabJournal'))}
-          <button type="button" className="fab" aria-label={t('add')} onClick={() => setModal({ k: 'add' })}><IconPlus /></button>
+          <button type="button" className="fab" aria-label={t('add')} onClick={() => setStack([{ k: 'add' }])}><IconPlus /></button>
           {tabBtn('sched', t('tabSched'))}
           {tabBtn('stats', t('tabStats'))}
         </nav>
-        {modal && <ModalHost key={modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal)} m={modal} />}
+        {modal && <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} />}
       </div>
     </NavCtx.Provider>
   )
