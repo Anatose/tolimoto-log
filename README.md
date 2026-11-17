@@ -1,5 +1,7 @@
 # Tolimoto Log
 
+https://app.tolimoto.com
+
 Vehicle maintenance and fuel log. Installable web app (PWA), iPhone first. Version 0.4.0: local-first, with optional Google sign-in, sync to a Google Sheet and receipts on Google Drive.
 
 ## Run
@@ -9,7 +11,8 @@ Vehicle maintenance and fuel log. Installable web app (PWA), iPhone first. Versi
     npm test           # calculation tests (schedule, fuel consumption, totals)
     npm run build      # type check + production build into dist/
 
-`dist/` is a static site: upload it to any HTTPS host (Cloudflare Pages, GitHub Pages, Netlify).
+`dist/` is a static site. It is published to GitHub Pages at https://app.tolimoto.com (custom domain set in the
+repository's Pages settings; DNS at Cloudflare: CNAME `app` → `anatose.github.io`, not proxied).
 The build uses relative paths, so it also works from a sub-folder.
 
 ## Structure
