@@ -41,6 +41,11 @@ export const guideUrl = (lang: string, anchor = ''): string =>
 
 /* ---------- install ---------- */
 
+const MenuIcon = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" style={{ verticalAlign: '-4px' }}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </svg>
+)
 const ShareIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-4px' }}>
     <path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M7 10H5.5v11h13V10H17" />
@@ -76,7 +81,7 @@ export function InstallIntro() {
       {steps.length > 0 && (
         <ol className="ob-steps">
           {steps.map((s, i) => (
-            <li key={i}><b>{i + 1}</b><span>{s}{i === 0 && p.startsWith('ios') ? <> <ShareIcon /></> : null}</span></li>
+            <li key={i}><b>{i + 1}</b><span>{s}{p.startsWith('ios') && i === 0 ? <> <MenuIcon /></> : p.startsWith('ios') && i === 1 ? <> <ShareIcon /></> : null}</span></li>
           ))}
         </ol>
       )}

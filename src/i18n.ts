@@ -155,8 +155,8 @@ export const S = {
   // first run: install
   inTitle: ['Установите приложение', 'Install the app'],
   inLead: ['Tolimoto Log работает как обычное приложение: с иконкой, на весь экран и без сети. Ничего не нужно скачивать из магазина.', 'Tolimoto Log works like a regular app: its own icon, full screen and offline. Nothing to download from a store.'],
-  inIos1: ['Нажмите «Поделиться» — квадрат со стрелкой вверх внизу экрана.', 'Tap Share — the square with an arrow at the bottom of the screen.'],
-  inIos2: ['Выберите «На экран „Домой“» (если не видно — пролистайте вниз).', 'Choose “Add to Home Screen” (scroll down if you don’t see it).'],
+  inIos1: ['Нажмите ≡ (три полоски) слева в адресной строке внизу. В старых версиях iOS этого шага нет — кнопка «Поделиться» сразу на панели.', 'Tap ≡ (three lines) on the left of the address bar at the bottom. Older iOS versions skip this — the Share button is right on the toolbar.'],
+  inIos2: ['Нажмите «Поделиться», затем «На экран „Домой“» (если не видно — пролистайте вниз).', 'Tap Share, then “Add to Home Screen” (scroll down if you don’t see it).'],
   inIos3: ['Нажмите «Добавить» и откройте Tolimoto Log с иконки.', 'Tap “Add”, then open Tolimoto Log from its icon.'],
   inIosOther: ['Лучше всего установка работает из Safari: откройте app.tolimoto.com в Safari.', 'Installing works best from Safari: open app.tolimoto.com in Safari.'],
   inAnd1: ['Откройте меню Chrome — три точки справа вверху.', 'Open the Chrome menu — the three dots at the top right.'],
