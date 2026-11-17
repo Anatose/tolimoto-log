@@ -134,3 +134,12 @@ p.split { display: flex; }
 .date-wrap:has(.date-clear) .input { padding-right: 44px; }
 .date-clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: 0; background: none; color: var(--mu); display: grid; place-items: center; }
 .date-clear svg { width: 18px; height: 18px; }
+
+button.pill { border: 0; font: inherit; font-size: 13px; }
+.pill.ok .dot { background: var(--ok); }
+.pill.busy .dot { background: var(--ac); }
+.pill.warn { color: var(--soon); }
+.pill.warn .dot { background: var(--soon); }
+.media-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--sf); border-radius: 12px; padding-left: 14px; min-height: 48px; }
+.media-row a { color: var(--ac); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.btn { text-decoration: none; }

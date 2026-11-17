@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals } from '../src/calc'
 import { addFuellyRows, lumpOverlaps, parseCsv, parseFuelly } from '../src/fuelly'
-import { emptyDB } from '../src/store'
+import { emptyDB, type DB as DBT } from '../src/store'
+import { fromSheet, merge3, toIso, toSheet, type Data } from '../src/sync'
 import type { DB, FuelEntry } from '../src/store'
 
 let failed = 0
@@ -73,4 +74,55 @@ for (const [file, want] of [['fuelly-nc750x.csv', [75, 4.08, 1106.1]], ['fuelly-
   const y2026 = Math.round(c.rows.filter((r) => r.date.startsWith('2026')).reduce((s, r) => s + r.total, 0) * 100) / 100
   eq(file, [c.rows.length, +(avgL100(segs) ?? 0).toFixed(2), y2026], want)
 }
+// ---- sheet round trip and three-way merge
+const sd: Data = {
+  vehicles: [{ id: 'v1', name: 'NC750X', type: 'moto', color: '#FF8A3D', currency: '€', odometer: 45800 }],
+  service: [{ id: 's1', vehicleId: 'v1', date: '2026-09-01', odometer: 37300, category: 'service', description: 'Oil', tags: ['engineoil', 'oilfilter'], parts: 36, labour: null, notes: 'Liqui Moly; "x"', media: 'https://drive.google.com/file/d/a/view' }],
+  fuel: [{ id: 'f1', vehicleId: 'v1', date: '2026-11-06', odometer: 45687, liters: 12.14, total: 22.45, full: true, missed: false, station: 'Shell' }],
+  schedule: [{ id: 'i1', vehicleId: 'v1', name: 'Oil', tag: 'engineoil', intervalKm: 10000, intervalDays: 365, hint: '' }],
+  expenses: [{ id: 'e1', vehicleId: 'v1', date: '2026-01-01', kind: 'insurance', amount: 128.13, note: '', media: '' }],
+}
+const tabs = toSheet(sd)
+eq('round trip', fromSheet(tabs).data, sd)
+// hand edits: Russian labels, a decimal comma, a real date cell, a row without id, a row without vehicle
+const edited = JSON.parse(JSON.stringify(tabs))
+edited.fuel[1][3] = '12,5'
+edited.service.push([46000, 'nc750x', '', 'Ремонт', 'Hand row', '#chain', '', '', 80, '', '', ''])
+edited.expenses.push(['2026-02-01', 'Unknown car', 'tax', 10, '', '', ''])
+const rd = fromSheet(edited)
+eq('decimal comma read', rd.data.fuel[0].liters, 12.5)
+const hand = rd.data.service.find((x) => x.description === 'Hand row')!
+eq('hand row read', [hand.date, hand.category, hand.tags, hand.parts, hand.id.length > 5], ['2025-12-09', 'repair', ['chain'], 80, true])
+eq('row without known vehicle skipped', rd.skipped, ['Other expenses 3'])
+eq('dd.mm.yyyy date', toIso('05.09.2026'), '2026-09-05')
+
+const clone = (x: Data): Data => JSON.parse(JSON.stringify(x))
+// sheet edited, app untouched -> sheet wins
+let L = clone(sd), R = clone(sd); R.fuel[0].liters = 13
+let m = merge3(sd, L, R)
+eq('sheet edit taken', [m.data.fuel[0].liters, m.stats.fromSheet], [13, 1])
+// app edited, sheet untouched -> app wins
+L = clone(sd); L.fuel[0].liters = 11; m = merge3(sd, L, clone(sd))
+eq('app edit kept', m.data.fuel[0].liters, 11)
+// both edited -> app wins, counted as conflict
+L = clone(sd); L.fuel[0].liters = 11; R = clone(sd); R.fuel[0].liters = 13; m = merge3(sd, L, R)
+eq('conflict: app wins', [m.data.fuel[0].liters, m.stats.conflicts], [11, 1])
+// deleted in the sheet, untouched in the app -> deleted
+R = clone(sd); R.expenses = []; m = merge3(sd, clone(sd), R)
+eq('sheet delete', m.data.expenses.length, 0)
+// deleted in the sheet but edited in the app -> kept
+L = clone(sd); L.expenses[0].amount = 130; R = clone(sd); R.expenses = []; m = merge3(sd, L, R)
+eq('edited survives sheet delete', m.data.expenses[0]?.amount, 130)
+// deleted in the app -> deleted
+L = clone(sd); L.fuel = []; m = merge3(sd, L, clone(sd))
+eq('app delete', m.data.fuel.length, 0)
+// first connection (empty base): union, nothing deleted
+const other: Data = { vehicles: [{ ...sd.vehicles[0] }], service: [], fuel: [{ ...sd.fuel[0], id: 'f2', odometer: 46000 }], schedule: [], expenses: [] }
+m = merge3({ vehicles: [], service: [], fuel: [], schedule: [], expenses: [] }, clone(sd), other)
+eq('first sync is a union', [m.data.fuel.map((f) => f.id), m.data.expenses.length], [['f1', 'f2'], 1])
+// a vehicle deleted in the app takes its records along even if the sheet still has them
+L = clone(sd); L.vehicles = []; L.service = []; L.fuel = []; L.schedule = []; L.expenses = []
+m = merge3(sd, L, clone(sd))
+eq('vehicle delete cascades', [m.data.vehicles.length, m.data.fuel.length, m.data.service.length], [0, 0, 0])
+void (null as unknown as DBT)
 process.exit(failed ? 1 : 0)

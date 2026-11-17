@@ -3,6 +3,8 @@ import { activeId, storageMode, today, update, useDB } from './store'
 import { useT, type K } from './i18n'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals, years, type SchedState } from './calc'
 import { Badge, Bar, Chips, DateInput, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
+import { googleConfigured, signIn } from './google'
+import { syncNow, useSync } from './sync'
 
 function useRem() {
   const { t, n } = useT()
@@ -73,6 +75,32 @@ function Carousel() {
   )
 }
 
+/* ---------- sync status in the top bar ---------- */
+
+function SyncPill() {
+  const db = useDB()
+  const { t } = useT()
+  const nav = useNav()
+  const st = useSync()
+  const g = db.settings.google
+  if (!googleConfigured() || !g || st.s === 'off') {
+    const mem = storageMode() === 'memory'
+    return <span className={'pill' + (mem ? ' warn' : '')}><span className="dot" /> {mem ? t('storageTemp') : t('savedLocal')}</span>
+  }
+  const time = (iso: string) => new Date(iso).toLocaleTimeString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const [cls, text, act] =
+    st.s === 'syncing' ? ['busy', t('sSyncing'), undefined]
+    : st.s === 'synced' ? ['ok', `${t('sSynced')} ${time(st.at)}`, () => void syncNow()]
+    : st.s === 'offline' ? ['', t('sOffline'), () => void syncNow()]
+    : st.s === 'signin' ? ['warn', t('gSignInAgain'), () => signIn({ email: g.email, silent: true })]
+    : ['warn', t('sError'), () => nav.open({ k: 'settings' })]
+  return (
+    <button type="button" className={'pill ' + cls} onClick={act} disabled={!act}>
+      <span className="dot" /> {text}
+    </button>
+  )
+}
+
 /* ---------- home ---------- */
 
 export function Home({ goSched }: { goSched: () => void }) {
@@ -92,7 +120,7 @@ export function Home({ goSched }: { goSched: () => void }) {
   return (
     <>
       <header className="topbar">
-        <span className={'pill' + (storageMode() === 'memory' ? ' warn' : '')}><span className="dot" /> {storageMode() === 'memory' ? t('storageTemp') : t('savedLocal')}</span>
+        <SyncPill />
         <button type="button" className="icon-btn" aria-label={t('settings')} onClick={() => nav.open({ k: 'settings' })}><IconGear /></button>
       </header>
       <Carousel />

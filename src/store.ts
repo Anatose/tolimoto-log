@@ -46,6 +46,8 @@ export interface Expense {
   kind: ExpenseKind
   amount: number
   note: string
+  /** Links to receipts or photos, one per line. */
+  media: string
 }
 export interface ScheduleItem {
   id: string
@@ -62,6 +64,15 @@ export interface Settings {
   startOnFuel: boolean
   activeVehicleId: string | null
   installHintDismissed: boolean
+  /** Google connection of this device; not part of the synced data. */
+  google: GoogleLink | null
+}
+export interface GoogleLink {
+  email: string
+  folderId: string
+  receiptsId: string
+  sheetId: string
+  lastSync: string | null
 }
 export interface DB {
   v: 1
@@ -80,7 +91,7 @@ export const emptyDB = (): DB => ({
   fuel: [],
   expenses: [],
   schedule: [],
-  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false },
+  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, google: null },
 })
 
 export const uid = (): string =>
@@ -138,6 +149,42 @@ async function idbGet(): Promise<DB | undefined> {
     q.onerror = () => rej(q.error)
   })
 }
+export async function kvGet<T>(key: string): Promise<T | undefined> {
+  try {
+    const d = await openIdb()
+    return await new Promise((res, rej) => {
+      const q = d.transaction('kv').objectStore('kv').get(key)
+      q.onsuccess = () => res(q.result as T | undefined)
+      q.onerror = () => rej(q.error)
+    })
+  } catch {
+    try {
+      const s = localStorage.getItem('tl-' + key)
+      return s ? (JSON.parse(s) as T) : undefined
+    } catch {
+      return undefined
+    }
+  }
+}
+export async function kvSet(key: string, v: unknown): Promise<void> {
+  try {
+    const d = await openIdb()
+    await new Promise<void>((res, rej) => {
+      const tx = d.transaction('kv', 'readwrite')
+      if (v === undefined) tx.objectStore('kv').delete(key)
+      else tx.objectStore('kv').put(v, key)
+      tx.oncomplete = () => res()
+      tx.onerror = () => rej(tx.error)
+    })
+  } catch {
+    try {
+      if (v === undefined) localStorage.removeItem('tl-' + key)
+      else localStorage.setItem('tl-' + key, JSON.stringify(v))
+    } catch {
+      /* memory only */
+    }
+  }
+}
 async function idbSet(v: DB): Promise<void> {
   const d = await openIdb()
   return new Promise((res, rej) => {
@@ -155,7 +202,7 @@ export function normalize(d: Partial<DB>): DB {
     vehicles: d.vehicles ?? [],
     service: d.service ?? [],
     fuel: d.fuel ?? [],
-    expenses: d.expenses ?? [],
+    expenses: (d.expenses ?? []).map((x) => ({ ...x, media: x.media ?? '' })),
     schedule: d.schedule ?? [],
     settings: { ...e.settings, ...(d.settings ?? {}) },
   }
@@ -199,12 +246,24 @@ function save(): void {
   }
 }
 
+const dataListeners = new Set<() => void>()
+/** Called after every change of records (not of device settings). */
+export const onDataChange = (f: () => void) => {
+  dataListeners.add(f)
+  return () => {
+    dataListeners.delete(f)
+  }
+}
+const dataKey = (d: DB) => JSON.stringify([d.vehicles, d.service, d.fuel, d.expenses, d.schedule])
+
 export function update(fn: (d: DB) => void): void {
+  const before = dataKey(state)
   const d = JSON.parse(JSON.stringify(state)) as DB
   fn(d)
   state = d
   save()
   emit()
+  if (dataKey(d) !== before) dataListeners.forEach((f) => f())
 }
 
 export const getDB = (): DB => state

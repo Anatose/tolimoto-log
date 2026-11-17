@@ -2,9 +2,12 @@ import { useRef, useState } from 'react'
 import { activeId, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
 import { PRESETS, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
-import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
+import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelly, type FuellyCar, type FuelOverlap } from './fuelly'
+import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
+import { shrink } from './photos'
+import { connect, disconnect, syncNow, useSync } from './sync'
 
 export const COLORS = ['#4C9AFF', '#FF8A3D', '#3DDC84', '#C77DFF', '#FF5A8A', '#FFD23F']
 const CATS: Category[] = ['service', 'consumables', 'repair', 'accessories']
@@ -241,6 +244,72 @@ export function FuelForm({ id }: { id?: string }) {
   )
 }
 
+
+/* ---------- photos and receipts of a record ---------- */
+
+const mediaList = (s: string) => s.split(/\n+/).map((x) => x.trim()).filter(Boolean)
+
+/** Links one per line. New photos go straight to the Receipts folder on the user's Drive. */
+function MediaField({ value, onChange, nameHint }: { value: string; onChange: (v: string) => void; nameHint: string }) {
+  const db = useDB()
+  const { t } = useT()
+  const g = db.settings.google
+  const input = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(0)
+  const [msg, setMsg] = useState('')
+  const [link, setLink] = useState('')
+  const list = mediaList(value)
+  const latest = useRef(value)
+  latest.current = value
+  const add = (url: string) => {
+    const next = [...mediaList(latest.current), url].join('\n')
+    latest.current = next
+    onChange(next)
+  }
+  const pick = async (files: FileList | null) => {
+    if (!files?.length || !g) return
+    setMsg('')
+    if (!navigator.onLine) return setMsg(t('photoOffline'))
+    if (!getToken()) return setMsg(t('photoNeedsSignin'))
+    for (const f of Array.from(files)) {
+      setBusy((x) => x + 1)
+      try {
+        const blob = await shrink(f)
+        const ext = blob.type === 'image/jpeg' ? 'jpg' : (f.name.split('.').pop() || 'bin')
+        add(await uploadFile(blob, `${nameHint}.${ext}`.replace(/[\\/:*?"<>|]+/g, ' '), g.receiptsId))
+      } catch (e) {
+        setMsg(`${t('photoError')} ${f.name} — ${(e as Error).message}`)
+      } finally {
+        setBusy((x) => x - 1)
+      }
+    }
+    if (input.current) input.current.value = ''
+  }
+  return (
+    <div className="field">
+      <span className="label">{t('photos')}</span>
+      {list.map((u, i) => (
+        <span className="media-row" key={u + i}>
+          <a href={u} target="_blank" rel="noopener noreferrer">{/^https:\/\/(drive|docs)\.google\.com/.test(u) ? `${t('photoN')} ${i + 1}` : u}</a>
+          <button type="button" className="icon-btn ghost" aria-label={t('delete')} onClick={() => onChange(list.filter((_, j) => j !== i).join('\n'))}><IconX /></button>
+        </span>
+      ))}
+      {busy > 0 && <span className="muted small">{t('uploading')}</span>}
+      {googleConfigured() && g ? (
+        <>
+          <button type="button" className="btn" onClick={() => input.current?.click()} disabled={busy > 0}>{t('addPhoto')}</button>
+          <input ref={input} type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => void pick(e.target.files)} />
+        </>
+      ) : googleConfigured() ? <span className="hint">{t('photoNeedsGoogle')}</span> : null}
+      {msg && <div className="notice warn" role="status">{msg}</div>}
+      <span className="inline">
+        <input className="input" type="url" inputMode="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://" aria-label={t('addLink')} autoCapitalize="none" />
+        <button type="button" className="btn small" disabled={!/^https?:\/\/\S+$/.test(link.trim())} onClick={() => { add(link.trim()); setLink('') }}>+</button>
+      </span>
+    </div>
+  )
+}
+
 /* ---------- service work ---------- */
 
 export function ServiceForm({ id, tag }: { id?: string; tag?: string }) {
@@ -331,9 +400,7 @@ export function ServiceForm({ id, tag }: { id?: string; tag?: string }) {
       <Field label={t('notes')}>
         <textarea className="input area" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={t('notesPh')} />
       </Field>
-      <Field label={t('media')}>
-        <input className="input" type="url" inputMode="url" value={media} onChange={(e) => setMedia(e.target.value)} placeholder="https://" autoCapitalize="none" />
-      </Field>
+      <MediaField value={media} onChange={setMedia} nameHint={`${date} ${v.name} ${desc.trim().slice(0, 40) || t('work')}`} />
       <div className="spacer" />
       {ed && <DeleteBtn onDelete={() => { update((d) => { d.service = d.service.filter((x) => x.id !== id) }); nav.close() }} />}
       <button type="button" className="btn primary big" disabled={!valid} onClick={save}>{t('save')} · {v.name}</button>
@@ -353,13 +420,14 @@ export function ExpenseForm({ id }: { id?: string }) {
   const [kind, setKind] = useState<ExpenseKind>(ed?.kind ?? 'insurance')
   const [amount, setAmount] = useState(ed ? inp(ed.amount, 2) : '')
   const [note, setNote] = useState(ed?.note ?? '')
+  const [media, setMedia] = useState(ed?.media ?? '')
   const v = db.vehicles.find((x) => x.id === vid)
   if (!v) return null
   const a = parseNum(amount)
   const valid = a != null && a > 0
   const save = () => {
     update((d) => {
-      const rec = { id: id ?? uid(), vehicleId: vid, date, kind, amount: a!, note: note.trim() }
+      const rec = { id: id ?? uid(), vehicleId: vid, date, kind, amount: a!, note: note.trim(), media: media.trim() }
       const i = d.expenses.findIndex((x) => x.id === rec.id)
       if (i >= 0) d.expenses[i] = rec
       else d.expenses.push(rec)
@@ -383,6 +451,7 @@ export function ExpenseForm({ id }: { id?: string }) {
       <Field label={t('note')}>
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
       </Field>
+      <MediaField value={media} onChange={setMedia} nameHint={`${date} ${v.name} ${t(('kind_' + kind) as K)}`} />
       <div className="spacer" />
       {ed && <DeleteBtn onDelete={() => { update((d) => { d.expenses = d.expenses.filter((x) => x.id !== id) }); nav.close() }} />}
       <button type="button" className="btn primary big" disabled={!valid} onClick={save}>{t('save')} · {v.name}</button>
@@ -568,6 +637,7 @@ export function SettingsSheet() {
         </button>
       ))}
       <button type="button" className="btn" onClick={() => nav.push({ k: 'vehicle' })}>+ {t('addVehicle')}</button>
+      {googleConfigured() && <GoogleSection />}
       <h3>{t('data')}</h3>
       <button type="button" className="btn" onClick={() => doExport('csv')}>{t('exportCsv')}</button>
       <button type="button" className="btn" onClick={() => doExport('json')}>{t('exportJson')}</button>
@@ -578,8 +648,8 @@ export function SettingsSheet() {
       {msg && <div className="notice" role="status">{msg}</div>}
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
-      <p className="muted">{t('googleLater')}</p>
-      <p className="muted">Tolimoto Log · {t('version')} 0.3.1</p>
+      {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
+      <p className="muted">Tolimoto Log · {t('version')} 0.4.0</p>
     </Sheet>
   )
 }
@@ -663,4 +733,65 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
       <button type="button" className="btn primary big" disabled={target.every((x) => x === 'skip')} onClick={run}>{t('fuellyGo')}</button>
     </Sheet>
   )
+}
+
+/* ---------- Google section of Settings ---------- */
+
+function GoogleSection() {
+  const db = useDB()
+  const { t } = useT()
+  const st = useSync()
+  const g = db.settings.google
+  const signedIn = !!getToken()
+  return (
+    <>
+      <h3>{t('gTitle')}</h3>
+      {!g ? (
+        <>
+          <p className="small muted">{t('gIntro')}</p>
+          {signedIn ? (
+            <button type="button" className="btn primary" disabled={st.s === 'syncing'} onClick={() => void connect()}>{st.s === 'syncing' ? t('sSyncing') : t('gSignIn')}</button>
+          ) : (
+            <button type="button" className="btn primary" onClick={() => signIn()}>{t('gSignIn')}</button>
+          )}
+          {st.s === 'error' && <div className="notice warn" role="status">{t('sError')}: {st.msg}</div>}
+        </>
+      ) : (
+        <>
+          <div className="card">
+            <span className="split"><span className="muted small">{t('gAccount')}</span><b className="small">{g.email || '—'}</b></span>
+            <SyncLine />
+            <a className="btn" href={sheetUrl(g.sheetId)} target="_blank" rel="noopener noreferrer">{t('gOpenSheet')}</a>
+            <a className="btn" href={folderUrl(g.receiptsId)} target="_blank" rel="noopener noreferrer">{t('gOpenFolder')}</a>
+            {signedIn ? (
+              <button type="button" className="btn primary" disabled={st.s === 'syncing'} onClick={() => void syncNow()}>{st.s === 'syncing' ? t('sSyncing') : t('gSyncNow')}</button>
+            ) : (
+              <button type="button" className="btn primary" onClick={() => signIn({ email: g.email, silent: true })}>{t('gSignInAgain')}</button>
+            )}
+          </div>
+          {st.s === 'synced' && st.skipped.length > 0 && <div className="notice warn"><span>{t('sSkipped')} {st.skipped.join(', ')}</span></div>}
+          {st.s === 'error' && <div className="notice warn" role="status">{t('sError')}: {st.msg}</div>}
+          <button type="button" className="btn link" onClick={() => { dropToken(); void disconnect() }}>{t('gDisconnect')}</button>
+          <span className="hint">{t('gDisconnectNote')}</span>
+        </>
+      )}
+    </>
+  )
+}
+
+/** One line of sync status, used in Settings. */
+export function SyncLine() {
+  const db = useDB()
+  const { t } = useT()
+  const st = useSync()
+  const last = db.settings.google?.lastSync
+  const time = (iso: string) => new Date(iso).toLocaleString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const text =
+    st.s === 'syncing' ? t('sSyncing')
+    : st.s === 'offline' ? t('sOffline')
+    : st.s === 'signin' ? t('sSignin')
+    : st.s === 'error' ? t('sError')
+    : st.s === 'synced' ? `${t('sSynced')} ${time(st.at)}${st.fromSheet ? ` · ${t('sFromSheet')}: ${st.fromSheet}` : ''}`
+    : last ? `${t('sSynced')} ${time(last)}` : t('sOff')
+  return <span className="small muted" role="status">{text}</span>
 }
