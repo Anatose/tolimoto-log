@@ -10,6 +10,10 @@ class FakeGoogle:
         self.calls = []
         self.uploads = []
         self.auth_calls = []
+        self.sheet_ids = {}
+        self.requests = []
+        self.locale = 'ru_RU'
+        self.input_options = []
         self.silent_mode = 'ok'
 
     def nid(self, p): return f"{p}{next(self.ids)}"
@@ -56,24 +60,51 @@ class FakeGoogle:
         if u.netloc == 'sheets.googleapis.com' and m:
             sid, rest = m.group(1), m.group(2)
             book = self.sheets[sid]
+            ids = self.sheet_ids.setdefault(sid, {})
+            for t in book:
+                if t not in ids: ids[t] = next(self.ids)
             if rest == '' and req.method == 'GET':
-                return await ok({'sheets': [{'properties': {'title': t, 'sheetId': i}} for i, t in enumerate(book)]})
+                return await ok({'properties': {'locale': self.locale}, 'sheets': [{'properties': {'title': t, 'sheetId': ids[t]}} for t in book]})
             if rest == ':batchUpdate':
-                titles = list(book)
+                replies = []
                 for r in json.loads(req.post_data)['requests']:
-                    if 'addSheet' in r: book[r['addSheet']['properties']['title']] = []
-                    if 'updateSheetProperties' in r:
-                        p = r['updateSheetProperties']['properties']; old = titles[p['sheetId']]
-                        book[p['title']] = book.pop(old)
-                return await ok({})
+                    self.requests.append(next(iter(r)))
+                    rep = {}
+                    if 'addSheet' in r:
+                        t = r['addSheet']['properties']['title']; book[t] = []; ids[t] = next(self.ids)
+                        rep = {'addSheet': {'properties': {'title': t, 'sheetId': ids[t]}}}
+                    if 'deleteSheet' in r:
+                        t = next(k for k, v in ids.items() if v == r['deleteSheet']['sheetId']); book.pop(t); ids.pop(t)
+                    if 'updateSheetProperties' in r and 'title' in r['updateSheetProperties']['properties']:
+                        p = r['updateSheetProperties']['properties']; old = next(k for k, v in ids.items() if v == p['sheetId'])
+                        book[p['title']] = book.pop(old); ids[p['title']] = ids.pop(old)
+                    replies.append(rep)
+                return await ok({'replies': replies})
             tab = lambda rng: re.match(r"'?(.+?)'?(!|$)", rng).group(1)
             if rest == '/values:batchGet':
-                return await ok({'valueRanges': [{'values': book.get(tab(r), [])} for r in q['ranges']]})
+                out = []
+                for r in q['ranges']:
+                    vals = book.get(tab(r), [])
+                    if r.endswith('!Z1'):
+                        z = vals[0][25] if vals and len(vals[0]) > 25 else None
+                        vals = [[z]] if z else []
+                    out.append({'values': vals})
+                return await ok({'valueRanges': out})
             if rest == '/values:batchClear':
                 for r in json.loads(req.post_data)['ranges']: book[tab(r)] = []
                 return await ok({})
             if rest == '/values:batchUpdate':
-                for d in json.loads(req.post_data)['data']: book[tab(d['range'])] = d['values']
+                b = json.loads(req.post_data)
+                for d in b['data']:
+                    t = tab(d['range']); cell = re.search(r"!([A-Z]+)1$", d['range'])
+                    if cell and cell.group(1) != 'A':
+                        rows = book.setdefault(t, [])
+                        while not rows: rows.append([])
+                        col = ord(cell.group(1)) - 65
+                        rows[0] = (rows[0] + [''] * 30)[:col] + [d['values'][0][0]]
+                    else:
+                        book[t] = d['values']
+                self.input_options.append(b['valueInputOption'])
                 return await ok({})
         return await route.fulfill(status=404, body='{"error":"not mocked"}')
 

@@ -1,18 +1,11 @@
 import { useSyncExternalStore } from 'react'
-import { getDB, kvGet, kvSet, onDataChange, uid, update, type Category, type DB, type ExpenseKind, type VType } from './store'
-import { AuthError, ensureLayout, getToken, googleConfigured, readRanges, sheetBatchUpdate, sheetTabs, signIn, userEmail, writeRanges, type Cell } from './google'
+import { getDB, kvGet, kvSet, onDataChange, uid, update, type DB, type Lang } from './store'
+import { AuthError, ensureLayout, getToken, googleConfigured, readRanges, sheetBatchUpdate, sheetInfo, signIn, userEmail, writeRanges, type Cell } from './google'
+import { CAT_READ, COLLS, KIND_READ, SUMMARY, TABS, TYPE_READ, buildSummary, catLabel, dataTabRequests, heading, isoToSerial, keyOfHeading, kindLabel, localize, summarySignature, typeLabel, type Coll, type SummaryInput } from './sheetLook'
+export { TABS }
 
-/* ---------- sheet layout ---------- */
+/* ---------- sheet layout (see sheetLook.ts) ---------- */
 
-type Coll = 'vehicles' | 'service' | 'fuel' | 'schedule' | 'expenses'
-export const TABS: Record<Coll, { title: string; cols: string[] }> = {
-  vehicles: { title: 'Garage', cols: ['name', 'type', 'currency', 'odometer', 'color', 'id'] },
-  service: { title: 'Service log', cols: ['date', 'vehicle', 'odometer', 'category', 'description', 'tags', 'parts', 'labour', 'total', 'notes', 'media', 'id'] },
-  fuel: { title: 'Fuel', cols: ['date', 'vehicle', 'odometer', 'liters', 'total', 'price_per_liter', 'full_tank', 'missed_previous', 'station', 'id'] },
-  schedule: { title: 'Schedule', cols: ['vehicle', 'name', 'tag', 'interval_km', 'interval_days', 'hint', 'id'] },
-  expenses: { title: 'Other expenses', cols: ['date', 'vehicle', 'kind', 'amount', 'note', 'media', 'id'] },
-}
-const COLLS = Object.keys(TABS) as Coll[]
 const colLetter = (n: number) => String.fromCharCode(64 + n)
 const rangeOf = (c: Coll) => `'${TABS[c].title}'!A1:${colLetter(TABS[c].cols.length)}`
 
@@ -24,16 +17,19 @@ const pick = (d: Data): Data => ({ vehicles: d.vehicles, service: d.service, fue
 const r2 = (x: number) => Math.round(x * 100) / 100
 const byDate = <T extends { date: string }>(a: T[]) => [...a].sort((x, y) => x.date.localeCompare(y.date))
 
-export function toSheet(d: Data): Record<Coll, Cell[][]> {
+/** The data tabs as cell values: headings and labels in the app's language, dates as real dates. */
+export function toSheet(d: Data, lang: Lang = 'en'): Record<Coll, Cell[][]> {
   const vname = (id: string) => d.vehicles.find((v) => v.id === id)?.name ?? ''
   const vorder = (id: string) => d.vehicles.findIndex((v) => v.id === id)
   const e = (x: number | null | undefined): Cell => (x == null ? '' : x)
+  const head = (c: Coll) => TABS[c].cols.map((k) => heading(c, k, lang))
+  const day = isoToSerial
   return {
-    vehicles: [TABS.vehicles.cols, ...d.vehicles.map((v) => [v.name, v.type, v.currency, v.odometer, v.color, v.id])],
-    service: [TABS.service.cols, ...byDate(d.service).map((s) => [s.date, vname(s.vehicleId), e(s.odometer), s.category, s.description, s.tags.map((t) => '#' + t).join(' '), e(s.parts), e(s.labour), s.parts == null && s.labour == null ? '' : r2((s.parts ?? 0) + (s.labour ?? 0)), s.notes, s.media, s.id])],
-    fuel: [TABS.fuel.cols, ...byDate(d.fuel).map((f) => [f.date, vname(f.vehicleId), f.odometer, f.liters, f.total, f.liters ? Math.round((f.total / f.liters) * 1000) / 1000 : '', f.full, f.missed, f.station, f.id])],
-    schedule: [TABS.schedule.cols, ...[...d.schedule].sort((a, b) => vorder(a.vehicleId) - vorder(b.vehicleId)).map((s) => [vname(s.vehicleId), s.name, '#' + s.tag, e(s.intervalKm), e(s.intervalDays), s.hint, s.id])],
-    expenses: [TABS.expenses.cols, ...byDate(d.expenses).map((x) => [x.date, vname(x.vehicleId), x.kind, x.amount, x.note, x.media, x.id])],
+    vehicles: [head('vehicles'), ...d.vehicles.map((v) => [v.name, typeLabel(v.type, lang), v.currency, v.odometer, v.color, v.id])],
+    service: [head('service'), ...byDate(d.service).map((s) => [day(s.date), vname(s.vehicleId), e(s.odometer), catLabel(s.category, lang), s.description, s.tags.map((t) => '#' + t).join(' '), e(s.parts), e(s.labour), s.parts == null && s.labour == null ? '' : r2((s.parts ?? 0) + (s.labour ?? 0)), s.notes, s.media, s.id])],
+    fuel: [head('fuel'), ...byDate(d.fuel).map((f) => [day(f.date), vname(f.vehicleId), f.odometer, f.liters, f.total, f.liters ? Math.round((f.total / f.liters) * 1000) / 1000 : '', f.full, f.missed, f.station, f.id])],
+    schedule: [head('schedule'), ...[...d.schedule].sort((a, b) => vorder(a.vehicleId) - vorder(b.vehicleId)).map((s) => [vname(s.vehicleId), s.name, '#' + s.tag, e(s.intervalKm), e(s.intervalDays), s.hint, s.id])],
+    expenses: [head('expenses'), ...byDate(d.expenses).map((x) => [day(x.date), vname(x.vehicleId), kindLabel(x.kind, lang), x.amount, x.note, x.media, x.id])],
   }
 }
 
@@ -65,9 +61,9 @@ export function toIso(c: Cell | undefined): string | null {
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
   return null
 }
-const CAT: Record<string, Category> = { service: 'service', 'то': 'service', consumables: 'consumables', 'расходники': 'consumables', repair: 'repair', 'ремонт': 'repair', accessories: 'accessories', 'аксессуары': 'accessories' }
-const KIND: Record<string, ExpenseKind> = { insurance: 'insurance', 'страховка': 'insurance', inspection: 'inspection', 'техосмотр': 'inspection', tax: 'tax', 'налог': 'tax', fuel: 'fuel', 'топливо': 'fuel', other: 'other', 'прочее': 'other' }
-const VT: Record<string, VType> = { moto: 'moto', 'мотоцикл': 'moto', car: 'car', 'автомобиль': 'car' }
+const CAT = CAT_READ
+const KIND = KIND_READ
+const VT = TYPE_READ
 const tagsOf = (c: Cell | undefined) => str(c).split(/[\s,]+/).map((t) => t.replace(/^#+/, '').toLowerCase()).filter(Boolean)
 
 export interface ReadResult {
@@ -80,9 +76,9 @@ export function fromSheet(tabs: Record<Coll, Cell[][]>): ReadResult {
   const skipped: string[] = []
   const rows = (c: Coll) => {
     const [head, ...body] = tabs[c]
-    const idx = (head ?? []).map((h) => str(h).toLowerCase())
+    const idx = (head ?? []).map((h) => keyOfHeading(c, str(h)))
     return body
-      .map((r, i) => ({ n: i + 2, get: (k: string) => r[idx.indexOf(k)] as Cell | undefined, empty: r.every((x) => str(x) === '') }))
+      .map((r, i) => ({ n: i + 2, get: (k: string) => (idx.indexOf(k) < 0 ? undefined : (r[idx.indexOf(k)] as Cell | undefined)), empty: r.every((x) => str(x) === '') }))
       .filter((r) => !r.empty)
   }
   const data: Data = { vehicles: [], service: [], fuel: [], schedule: [], expenses: [] }
@@ -222,20 +218,59 @@ const BASE_KEY = 'sync-base'
 let running: Promise<void> | null = null
 let again = false
 
-async function ensureTabs(id: string): Promise<void> {
-  const tabs = await sheetTabs(id)
-  const have = new Set(tabs.map((t) => t.title))
+async function ensureTabs(id: string): Promise<{ locale: string; ids: Record<string, number> }> {
+  let info = await sheetInfo(id)
+  const have = new Set(info.tabs.map((t) => t.title))
   const req: unknown[] = []
   const want = COLLS.map((c) => TABS[c].title)
   // a new spreadsheet has one empty "Sheet1"/"Лист1": rename it rather than leave it
-  const spare = tabs.find((t) => !want.includes(t.title))
+  const spare = info.tabs.find((t) => !want.includes(t.title) && t.title !== SUMMARY)
   for (const title of want) {
     if (have.has(title)) continue
-    if (spare && tabs.length === 1 && !req.some((r) => (r as { updateSheetProperties?: unknown }).updateSheetProperties)) {
+    if (spare && info.tabs.length === 1 && !req.some((r) => (r as { updateSheetProperties?: unknown }).updateSheetProperties)) {
       req.push({ updateSheetProperties: { properties: { sheetId: spare.sheetId, title, gridProperties: { frozenRowCount: 1 } }, fields: 'title,gridProperties.frozenRowCount' } })
     } else req.push({ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } })
   }
-  if (req.length) await sheetBatchUpdate(id, req)
+  if (req.length) {
+    await sheetBatchUpdate(id, req)
+    info = await sheetInfo(id)
+  }
+  return { locale: info.locale, ids: Object.fromEntries(info.tabs.map((t) => [t.title, t.sheetId])) }
+}
+
+function summaryInput(d: Data, lang: Lang): SummaryInput {
+  const thisYear = new Date().getFullYear()
+  const years: Record<string, number[]> = {}
+  for (const v of d.vehicles) {
+    const set = new Set<number>([thisYear])
+    for (const x of [...d.service, ...d.fuel, ...d.expenses]) if (x.vehicleId === v.id) set.add(Number(x.date.slice(0, 4)))
+    years[v.id] = [...set].filter((y) => y > 1900).sort((a, b) => b - a)
+  }
+  return {
+    lang,
+    vehicles: d.vehicles.map((v) => ({ id: v.id, name: v.name, currency: v.currency })),
+    schedule: d.schedule.map((s) => ({ vehicleId: s.vehicleId, name: s.name, tag: s.tag, intervalKm: s.intervalKm, intervalDays: s.intervalDays, hint: s.hint })),
+    years,
+  }
+}
+
+/** Rebuilds the Summary tab when what it is built from (vehicles, schedule, years, language) changed. */
+async function updateSummary(id: string, ids: Record<string, number>, locale: string, d: Data, lang: Lang): Promise<void> {
+  const input = summaryInput(d, lang)
+  const sig = summarySignature(input)
+  if (SUMMARY in ids) {
+    const z = await readRanges(id, [`'${SUMMARY}'!Z1`])
+    if (z[0]?.[0]?.[0] === sig) return
+  }
+  const req: unknown[] = []
+  if (SUMMARY in ids) req.push({ deleteSheet: { sheetId: ids[SUMMARY] } })
+  req.push({ addSheet: { properties: { title: SUMMARY, index: 0, gridProperties: { frozenRowCount: 0 } } } })
+  const res = await sheetBatchUpdate(id, req)
+  const sheetId = res.replies?.find((r) => r.addSheet)?.addSheet?.properties.sheetId
+  if (sheetId == null) return
+  const { values, requests } = buildSummary(input, sheetId)
+  await writeRanges(id, [{ range: `'${SUMMARY}'!A1`, values: localize(values, locale) }, { range: `'${SUMMARY}'!Z1`, values: [[sig]] }], [], 'USER_ENTERED')
+  await sheetBatchUpdate(id, requests)
 }
 
 async function runSync(): Promise<void> {
@@ -245,7 +280,8 @@ async function runSync(): Promise<void> {
   if (!navigator.onLine) return setStatus({ s: 'offline' })
   setStatus({ s: 'syncing' })
   try {
-    await ensureTabs(g.sheetId)
+    const lang: Lang = getDB().settings.lang ?? 'ru'
+    const { locale, ids } = await ensureTabs(g.sheetId)
     const vals = await readRanges(g.sheetId, COLLS.map(rangeOf))
     const tabs = Object.fromEntries(COLLS.map((c, i) => [c, vals[i]])) as Record<Coll, Cell[][]>
     const remote = fromSheet(tabs)
@@ -253,11 +289,15 @@ async function runSync(): Promise<void> {
     const local = pick(getDB())
     const { data, stats } = merge3(base, local, remote.data)
     if (canon(data) !== canon(local)) update((d) => Object.assign(d, data))
-    const out = toSheet(data)
+    const out = toSheet(data, lang)
     // write only when the sheet differs, so a hand edit made meanwhile is not overwritten for nothing
     const trim = (rows: Cell[][]) => rows.map((r) => { const x = [...r]; while (x.length && (x[x.length - 1] === '' || x[x.length - 1] == null)) x.pop(); return x })
-    if (COLLS.some((c) => canon(trim(out[c])) !== canon(trim(tabs[c]))))
+    if (COLLS.some((c) => canon(trim(out[c])) !== canon(trim(tabs[c])))) {
       await writeRanges(g.sheetId, COLLS.map((c) => ({ range: `'${TABS[c].title}'!A1`, values: out[c] })), COLLS.map((c) => `'${TABS[c].title}'`))
+      // formats, checkboxes and clickable links; the whole-column formats survive later writes
+      await sheetBatchUpdate(g.sheetId, COLLS.flatMap((c) => dataTabRequests(c, ids[TABS[c].title], out[c])))
+    }
+    await updateSummary(g.sheetId, ids, locale, data, lang)
     await kvSet(BASE_KEY, data)
     const at = new Date().toISOString()
     update((d) => { if (d.settings.google) d.settings.google.lastSync = at })

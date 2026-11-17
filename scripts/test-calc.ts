@@ -3,6 +3,7 @@ import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals } from
 import { addFuellyRows, lumpOverlaps, parseCsv, parseFuelly } from '../src/fuelly'
 import { emptyDB, type DB as DBT } from '../src/store'
 import { fromSheet, merge3, toIso, toSheet, type Data } from '../src/sync'
+import { buildSummary, linkCell, localize } from '../src/sheetLook'
 import type { DB, FuelEntry } from '../src/store'
 
 let failed = 0
@@ -124,5 +125,21 @@ eq('first sync is a union', [m.data.fuel.map((f) => f.id), m.data.expenses.lengt
 L = clone(sd); L.vehicles = []; L.service = []; L.fuel = []; L.schedule = []; L.expenses = []
 m = merge3(sd, L, clone(sd))
 eq('vehicle delete cascades', [m.data.vehicles.length, m.data.fuel.length, m.data.service.length], [0, 0, 0])
+// Russian sheet: headings, labels, real dates, and reading it back
+const ru = toSheet(sd, 'ru')
+eq('ru headings', [ru.service[0][0], ru.fuel[0][6], ru.expenses[0][2]], ['Дата', 'Полный бак', 'Вид'])
+eq('ru labels and serial dates', [ru.service[1][3], ru.expenses[1][2], ru.vehicles[1][1], ru.service[1][0]], ['ТО', 'Страховка', 'Мотоцикл', 46266])
+eq('ru round trip', fromSheet(ru).data, sd)
+eq('english sheet still read', fromSheet(toSheet(sd, 'en')).data, sd)
+// clickable links, several in one cell
+const lc = linkCell('https://a.example/x\nhttps://b.example/y') as { textFormatRuns: { startIndex: number; format: { link?: { uri: string } } }[] }
+eq('links', lc.textFormatRuns.map((r) => [r.startIndex, r.format.link?.uri ?? '']), [[0, 'https://a.example/x'], [19, ''], [20, 'https://b.example/y']])
+// summary: formulas, and ';' for comma locales without touching text in quotes
+const sm = buildSummary({ lang: 'ru', vehicles: [{ id: 'v1', name: 'NC750X', currency: '€' }], schedule: [{ vehicleId: 'v1', name: 'Масло', tag: 'engineoil', intervalKm: 10000, intervalDays: 365, hint: '' }], years: { v1: [2026, 2025] } }, 7)
+const flat = sm.values.flat().map(String)
+eq('summary has odometer, schedule and year formulas', [flat.filter((x) => x.startsWith('=MAX(IFERROR(MAXIFS')).length, flat.filter((x) => x.includes('REGEXMATCH')).length, flat.filter((x) => x.startsWith('=SUM(B')).length], [1, 2, 3])
+const loc = localize([['=IF(A1="a,b",1,2)', 'x,y']], 'ru_RU')
+eq('localize', loc, [['=IF(A1="a,b";1;2)', 'x,y']])
+eq('localize en untouched', localize([['=IF(A1,1,2)']], 'en_US'), [['=IF(A1,1,2)']])
 void (null as unknown as DBT)
 process.exit(failed ? 1 : 0)

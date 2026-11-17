@@ -177,11 +177,12 @@ export async function uploadFile(blob: Blob, name: string, parent: string): Prom
 
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets'
 
-export async function sheetTabs(id: string): Promise<{ title: string; sheetId: number }[]> {
-  const r = await api<{ sheets: { properties: { title: string; sheetId: number } }[] }>(`${SHEETS}/${id}?fields=sheets.properties(title,sheetId)`)
-  return r.sheets.map((s) => s.properties)
+export async function sheetInfo(id: string): Promise<{ locale: string; tabs: { title: string; sheetId: number }[] }> {
+  const r = await api<{ properties?: { locale?: string }; sheets: { properties: { title: string; sheetId: number } }[] }>(`${SHEETS}/${id}?fields=properties.locale,sheets.properties(title,sheetId)`)
+  return { locale: r.properties?.locale ?? 'en_US', tabs: r.sheets.map((s) => s.properties) }
 }
-export const sheetBatchUpdate = (id: string, requests: unknown[]) => api(`${SHEETS}/${id}:batchUpdate`, json({ requests }))
+export const sheetBatchUpdate = (id: string, requests: unknown[]) =>
+  api<{ replies?: { addSheet?: { properties: { sheetId: number } } }[] }>(`${SHEETS}/${id}:batchUpdate`, json({ requests }))
 
 export type Cell = string | number | boolean
 export async function readRanges(id: string, ranges: string[]): Promise<Cell[][][]> {
@@ -189,9 +190,9 @@ export async function readRanges(id: string, ranges: string[]): Promise<Cell[][]
   const r = await api<{ valueRanges: { values?: Cell[][] }[] }>(`${SHEETS}/${id}/values:batchGet?${q}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`)
   return r.valueRanges.map((v) => v.values ?? [])
 }
-export async function writeRanges(id: string, data: { range: string; values: Cell[][] }[], clear: string[]): Promise<void> {
-  await api(`${SHEETS}/${id}/values:batchClear`, json({ ranges: clear }))
-  await api(`${SHEETS}/${id}/values:batchUpdate`, json({ valueInputOption: 'RAW', data }))
+export async function writeRanges(id: string, data: { range: string; values: Cell[][] }[], clear: string[], input: 'RAW' | 'USER_ENTERED' = 'RAW'): Promise<void> {
+  if (clear.length) await api(`${SHEETS}/${id}/values:batchClear`, json({ ranges: clear }))
+  await api(`${SHEETS}/${id}/values:batchUpdate`, json({ valueInputOption: input, data }))
 }
 
 export const sheetUrl = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/edit`

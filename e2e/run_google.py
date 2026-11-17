@@ -26,9 +26,9 @@ async def main():
         await pg.screenshot(path='/tmp/g1-home.png')
         # 2. hand edits in the sheet
         fuel = book['Fuel']; head = fuel[0]
-        last = fuel[-1]; last[head.index('liters')] = 20
+        last = fuel[-1]; last[head.index('Литры')] = 20
         book['Service log'].append(['2026-11-10', 'Honda NC750X', 45700, 'Ремонт', 'Hand-made row', '#chain', 55, '', '', 'typed in Sheets', '', ''])
-        ex = book['Other expenses']; book['Other expenses'] = [ex[0]] + [r for r in ex[1:] if r[2] != 'inspection']
+        ex = book['Other expenses']; book['Other expenses'] = [ex[0]] + [r for r in ex[1:] if r[2] != 'Техосмотр']
         await pg.click('.pill')
         await pg.wait_for_selector('.pill.ok >> text=Синхронизировано', timeout=15000)
         await pg.wait_for_timeout(300)
@@ -65,6 +65,14 @@ async def main():
         await pg.click('button[aria-label="Настройки"]')
         out['settings'] = (await pg.inner_text('.sheet-body')).split('Google Таблица и Диск')[1][:260].replace('\n', ' | ')
         await pg.screenshot(path='/tmp/g4-settings.png', full_page=True)
+        b2 = g.book()
+        out['tabs_order'] = list(b2)
+        out['summary_rows'] = len(b2.get('Summary', []))
+        out['summary_semicolons'] = any(isinstance(c, str) and c.startswith('=MAX(IFERROR(MAXIFS') and ';' in c for r in b2.get('Summary', []) for c in r)
+        out['ru_headers'] = [b2['Service log'][0][0], b2['Fuel'][0][6]]
+        out['date_is_number'] = isinstance(b2['Fuel'][1][0], (int, float))
+        out['format_requests'] = sorted(set(g.requests))
+        out['input_options'] = sorted(set(g.input_options))
         out['errors'] = errs
         for k, v in out.items(): print(k, ':', v)
         await b.close()
