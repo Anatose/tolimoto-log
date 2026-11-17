@@ -51,15 +51,15 @@ export const buildJson = (db: DB): Blob =>
   })
 
 /** On iPhone the share sheet is the reliable way to save a file from an installed web app. */
-export async function saveFile(name: string, blob: Blob): Promise<void> {
+export async function saveFile(name: string, blob: Blob): Promise<boolean> {
   const file = new File([blob], name, { type: blob.type })
   const nv = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) && nv.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file] })
-      return
+      return true
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return
+      if ((e as Error).name === 'AbortError') return false
     }
   }
   const a = document.createElement('a')
@@ -69,6 +69,15 @@ export async function saveFile(name: string, blob: Blob): Promise<void> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+  return true
+}
+
+/** Saves a JSON backup and remembers when, for the backup reminder. */
+export async function backupNow(): Promise<boolean> {
+  const db = getDB()
+  const ok = await saveFile(`tolimoto-log-${stamp()}.json`, buildJson({ ...db, settings: { ...db.settings, google: null } }))
+  if (ok) update((d) => { d.settings.lastBackup = new Date().toISOString(); d.settings.backupSnooze = null })
+  return ok
 }
 
 /** Merge a JSON backup into the current data: records are added or replaced by id, nothing else is removed. */

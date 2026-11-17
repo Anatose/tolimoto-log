@@ -170,4 +170,26 @@ void (null as unknown as DBT)
   eq('fuelio import twice', [r1.added, r2.added, r2.replaced, d0.fuel.length, d0.service.length, d0.expenses.length], [4, 0, 4, 2, 1, 1])
 }
 
+// first run and backup reminder
+{
+  const { backupDue } = await import('../src/Onboarding')
+  const { normalize } = await import('../src/store')
+  const old = normalize({ vehicles: [{ id: 'a', name: 'x', type: 'moto', color: '#fff', currency: '€', odometer: 0 }], settings: { lang: 'ru' } as never })
+  eq('existing users skip first run', [old.settings.onboarded, old.settings.installSeen], [true, true])
+  eq('new users see first run', [normalize({}).settings.onboarded, normalize({}).settings.installSeen], [false, false])
+  const d = normalize({ fuel: Array.from({ length: 11 }, (_, i) => ({ id: 'f' + i, vehicleId: 'a', date: '2026-01-01', odometer: i, liters: 1, total: 1, full: true, missed: false, station: '' })) })
+  const now = Date.parse('2026-11-17T12:00:00Z')
+  eq('backup due: never backed up', backupDue(d, now), true)
+  d.settings.lastBackup = '2026-11-01T00:00:00Z'
+  eq('backup not due within 30 days', backupDue(d, now), false)
+  d.settings.lastBackup = '2026-10-01T00:00:00Z'
+  eq('backup due after 30 days', backupDue(d, now), true)
+  d.settings.backupSnooze = '2026-11-19T00:00:00Z'
+  eq('snoozed', backupDue(d, now), false)
+  d.settings.backupSnooze = null
+  d.settings.google = { email: '', folderId: '', receiptsId: '', sheetId: 's', lastSync: null }
+  eq('no reminder with Google', backupDue(d, now), false)
+  const few = normalize({ fuel: d.fuel.slice(0, 5) })
+  eq('no reminder for a few records', backupDue(few, now), false)
+}
 process.exit(failed ? 1 : 0)

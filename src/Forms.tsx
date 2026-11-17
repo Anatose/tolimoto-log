@@ -3,7 +3,8 @@ import { activeId, today, uid, update, useDB, storageMode, type Category, type E
 import { PRESETS, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
-import { buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
+import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
+import { guideUrl } from './Onboarding'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -641,7 +642,9 @@ export function SettingsSheet() {
       {googleConfigured() && <GoogleSection />}
       <h3>{t('data')}</h3>
       <button type="button" className="btn" onClick={() => doExport('csv')}>{t('exportCsv')}</button>
-      <button type="button" className="btn" onClick={() => doExport('json')}>{t('exportJson')}</button>
+      <button type="button" className="btn primary" onClick={() => nav.push({ k: 'safety' })}>{t('dsTitle')}</button>
+      <button type="button" className="btn" onClick={async () => { if (await backupNow()) setMsg(t('backupSaved')) }}>{t('exportJson')}</button>
+      <span className="hint">{t('dsLast')}: {db.settings.lastBackup ? new Date(db.settings.lastBackup).toLocaleDateString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU') : t('dsNever')}</span>
       <button type="button" className="btn" onClick={() => file.current?.click()}>{t('importJson')}</button>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
       <button type="button" className="btn" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
@@ -649,8 +652,9 @@ export function SettingsSheet() {
       {msg && <div className="notice" role="status">{msg}</div>}
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
+      <a className="btn link" href={guideUrl(db.settings.lang ?? 'ru')} target="_blank" rel="noopener">{t('help')}</a>
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
-      <p className="muted">Tolimoto Log · {t('version')} 0.4.5</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.5.0</p>
     </Sheet>
   )
 }

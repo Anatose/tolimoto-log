@@ -13,6 +13,7 @@ export type Modal =
   | { k: 'sched'; id?: string }
   | { k: 'history'; tag: string; vid: string }
   | { k: 'settings' }
+  | { k: 'safety' }
   | { k: 'spend'; vid: string; year: number | null; bucket: Bucket }
   | { k: 'fuelly'; cars: import('./fuelly').FuellyCar[] }
   | null

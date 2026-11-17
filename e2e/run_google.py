@@ -12,7 +12,7 @@ async def main():
         pg = await ctx.new_page(); errs=[]
         pg.on('pageerror', lambda e: errs.append(str(e)))
         out = {}
-        await pg.goto(APP); await pg.click('text=Русский')
+        await pg.goto(APP); await pg.click('text=Русский'); await pg.click('text=Продолжить в браузере'); await pg.click('text=Пропустить')
         await pg.set_input_files('input[accept="application/json,.json"]', sys.argv[1] if len(sys.argv) > 1 else 'data/backup.json')
         await pg.wait_for_selector('.fuel-btn')
         # 1. sign in from Settings -> redirect -> back -> connect -> first sync

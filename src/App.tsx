@@ -4,6 +4,7 @@ import { setUiBusy } from './sync'
 import { useT } from './i18n'
 import { IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
+import { DataSafety, InstallIntro, Tour, isStandalone } from './Onboarding'
 import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
 
 type Tab = 'home' | 'journal' | 'sched' | 'stats'
@@ -19,6 +20,7 @@ function ModalHost({ m }: { m: NonNullable<Modal> }) {
     case 'sched': return <SchedForm id={m.id} />
     case 'history': return <History tag={m.tag} vid={m.vid} />
     case 'settings': return <SettingsSheet />
+    case 'safety': return <DataSafety />
     case 'spend': return <SpendList vid={m.vid} year={m.year} bucket={m.bucket} />
     case 'fuelly': return <FuellyImport cars={m.cars} />
   }
@@ -60,6 +62,8 @@ export default function App() {
 
   if (!loaded) return <div className="center-screen"><h1>Tolimoto Log</h1></div>
   if (!db.settings.lang) return <LangPick />
+  if (!db.settings.installSeen && !isStandalone()) return <InstallIntro />
+  if (!db.settings.onboarded) return <Tour />
   if (!db.vehicles.length)
     return (<NavCtx.Provider value={nav}>{modal?.k === 'fuelly' ? <FuellyImport cars={modal.cars} /> : <VehicleForm first />}</NavCtx.Provider>)
 

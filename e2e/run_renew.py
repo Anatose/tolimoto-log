@@ -13,7 +13,7 @@ async def main():
         pg = await ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         out = {}
-        await pg.goto(APP); await pg.click('text=Русский')
+        await pg.goto(APP); await pg.click('text=Русский'); await pg.click('text=Продолжить в браузере'); await pg.click('text=Пропустить')
         await pg.set_input_files('input[accept="application/json,.json"]', sys.argv[1])
         await pg.wait_for_selector('.fuel-btn')
         await pg.click('button[aria-label="Настройки"]'); await pg.click('button:has-text("Войти через Google")')

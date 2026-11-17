@@ -1,3 +1,4 @@
+import { BackupReminder } from './Onboarding'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { activeId, storageMode, today, update, useDB } from './store'
 import { useT, type K } from './i18n'
@@ -85,7 +86,7 @@ function SyncPill() {
   const g = db.settings.google
   if (!googleConfigured() || !g || st.s === 'off') {
     const mem = storageMode() === 'memory'
-    return <span className={'pill' + (mem ? ' warn' : '')}><span className="dot" /> {mem ? t('storageTemp') : t('savedLocal')}</span>
+    return <button type="button" className={'pill' + (mem ? ' warn' : '')} onClick={() => nav.open({ k: 'safety' })}><span className="dot" /> {mem ? t('storageTemp') : t('savedLocal')} <span aria-hidden="true">›</span></button>
   }
   const time = (iso: string) => new Date(iso).toLocaleTimeString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' })
   const [cls, text, act] =
@@ -116,7 +117,6 @@ export function Home({ goSched }: { goSched: () => void }) {
   const up = db.schedule.filter((s) => s.vehicleId === vid).map((s) => schedState(db, s, td)).filter((s) => s.status !== 'none').sort((a, b) => urgency(b) - urgency(a)).slice(0, 3)
   const tot = totals(db, vid, year)
   const avg = avgL100(fuelSegments(db.fuel.filter((f) => f.vehicleId === vid)))
-  const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches
   return (
     <>
       <header className="topbar">
@@ -125,12 +125,7 @@ export function Home({ goSched }: { goSched: () => void }) {
       </header>
       <Carousel />
       <button type="button" className="btn primary fuel-btn" onClick={() => nav.open({ k: 'fuel' })}><IconFuel /> {t('fuel')} · {v.name}</button>
-      {!standalone && !db.settings.installHintDismissed && (
-        <div className="notice">
-          <span><b>{t('installTitle')}</b><br />{t('installText')}</span>
-          <button type="button" className="btn small" onClick={() => update((d) => { d.settings.installHintDismissed = true })}>{t('gotIt')}</button>
-        </div>
-      )}
+      <BackupReminder />
       <div className="split head">
         <h3>{t('upcoming')}</h3>
         <button type="button" className="btn link" onClick={goSched}>{t('allSched')}</button>

@@ -64,6 +64,16 @@ export interface Settings {
   startOnFuel: boolean
   activeVehicleId: string | null
   installHintDismissed: boolean
+  /** The "install the app" intro was shown in this browser. */
+  installSeen: boolean
+  /** The first-run tour and the storage choice are done. */
+  onboarded: boolean
+  /** Chose to keep data only on this device and confirmed the risk. */
+  localAck: boolean
+  /** Last JSON backup saved from this device (ISO time). */
+  lastBackup: string | null
+  /** The backup reminder stays hidden until this time (ISO). */
+  backupSnooze: string | null
   /** Google connection of this device; not part of the synced data. */
   google: GoogleLink | null
 }
@@ -91,7 +101,7 @@ export const emptyDB = (): DB => ({
   fuel: [],
   expenses: [],
   schedule: [],
-  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, google: null },
+  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, installSeen: false, onboarded: false, localAck: false, lastBackup: null, backupSnooze: null, google: null },
 })
 
 export const uid = (): string =>
@@ -204,7 +214,12 @@ export function normalize(d: Partial<DB>): DB {
     fuel: d.fuel ?? [],
     expenses: (d.expenses ?? []).map((x) => ({ ...x, media: x.media ?? '' })),
     schedule: d.schedule ?? [],
-    settings: { ...e.settings, ...(d.settings ?? {}) },
+    settings: {
+      ...e.settings,
+      // people who already have records skip the first-run screens
+      ...((d.vehicles ?? []).length && d.settings && d.settings.onboarded === undefined ? { onboarded: true, installSeen: true } : {}),
+      ...(d.settings ?? {}),
+    },
   }
 }
 
