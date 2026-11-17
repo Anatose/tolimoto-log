@@ -128,3 +128,9 @@ small { font-size: 0.6em; font-weight: 500; color: var(--mu); }
 .row-btn.bare.total-row { flex-direction: row; justify-content: space-between; border-top: 1px solid var(--sf2); padding-top: 10px; }
 button.tile { align-items: flex-start; }
 p.split { display: flex; }
+
+.date-wrap { position: relative; display: block; }
+.date-wrap .input { width: 100%; }
+.date-wrap:has(.date-clear) .input { padding-right: 44px; }
+.date-clear { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: 0; background: none; color: var(--mu); display: grid; place-items: center; }
+.date-clear svg { width: 18px; height: 18px; }

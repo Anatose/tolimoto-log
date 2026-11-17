@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { activeId, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
 import { PRESETS, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
-import { Chips, DeleteBtn, Field, IconFuel, IconWrench, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
+import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelly, type FuellyCar, type FuelOverlap } from './fuelly'
 
@@ -222,7 +222,7 @@ export function FuelForm({ id }: { id?: string }) {
         </div>
       )}
       <Field label={t('date')}>
-        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+        <DateInput value={date} onChange={setDate} fallback={today()} />
       </Field>
       {more ? (
         <>
@@ -292,7 +292,7 @@ export function ServiceForm({ id, tag }: { id?: string; tag?: string }) {
       <VehicleChips vid={vid} onChange={setVid} />
       <div className="grid2">
         <Field label={t('date')}>
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+          <DateInput value={date} onChange={setDate} fallback={today()} />
         </Field>
         <Field label={t('odoOptional')}>
           <input className="input num" inputMode="numeric" value={odo} onChange={(e) => setOdo(e.target.value)} />
@@ -378,7 +378,7 @@ export function ExpenseForm({ id }: { id?: string }) {
         <input className="input num big" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus={!ed} />
       </Field>
       <Field label={t('date')}>
-        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+        <DateInput value={date} onChange={setDate} fallback={today()} />
       </Field>
       <Field label={t('note')}>
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -579,7 +579,7 @@ export function SettingsSheet() {
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <p className="muted">{t('googleLater')}</p>
-      <p className="muted">Tolimoto Log · {t('version')} 0.3.0</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.3.1</p>
     </Sheet>
   )
 }

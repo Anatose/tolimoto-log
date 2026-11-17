@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { activeId, storageMode, today, update, useDB } from './store'
 import { useT, type K } from './i18n'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals, years, type SchedState } from './calc'
-import { Badge, Bar, Chips, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
+import { Badge, Bar, Chips, DateInput, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
 
 function useRem() {
   const { t, n } = useT()
@@ -196,8 +196,8 @@ export function Journal() {
       <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
       <Chips value={kind} onChange={setKind} options={[{ v: 'all', l: t('all') }, { v: 'service', l: t('fWork') }, { v: 'fuel', l: t('fFuel') }, { v: 'expense', l: t('fExp') }]} />
       <div className="grid2">
-        <label className="field"><span className="label">{t('dateFrom')}</span><input className="input" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="field"><span className="label">{t('dateTo')}</span><input className="input" type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
+        <div className="field"><span className="label">{t('dateFrom')}</span><DateInput label={t('dateFrom')} value={from} max={to || undefined} onChange={setFrom} clearable /></div>
+        <div className="field"><span className="label">{t('dateTo')}</span><DateInput label={t('dateTo')} value={to} min={from || undefined} onChange={setTo} clearable /></div>
       </div>
       {(from || to) && <button type="button" className="btn link" onClick={() => { setFrom(''); setTo('') }}>{t('resetDates')}</button>}
       {allTags.length > 0 && (

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useDB } from './store'
 import { useT } from './i18n'
 import type { Status } from './calc'
@@ -127,5 +127,45 @@ export function DeleteBtn(p: { onDelete: () => void }) {
     <button type="button" className={'btn danger' + (ask ? ' armed' : '')} onClick={() => (ask ? p.onDelete() : setAsk(true))}>
       {ask ? t('confirmDelete') : t('delete')}
     </button>
+  )
+}
+
+/**
+ * Date field. iOS Safari's own "Reset" button empties the field without firing the event React
+ * listens to, so the value is also read on the native input/change events and when focus leaves.
+ * With `clearable`, a cross clears it; without it, an emptied field falls back to `fallback`.
+ */
+export function DateInput(p: { value: string; onChange: (v: string) => void; clearable?: boolean; fallback?: string; min?: string; max?: string; label?: string }) {
+  const { t } = useT()
+  const ref = useRef<HTMLInputElement>(null)
+  const cb = useRef(p.onChange)
+  cb.current = p.onChange
+  const fb = useRef(p.fallback)
+  fb.current = p.fallback
+  const push = (raw: string) => cb.current(raw || (fb.current ?? ''))
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const on = () => {
+      // a required date that was emptied shows the fallback again even when the state did not change
+      if (!el.value && fb.current) el.value = fb.current
+      push(el.value)
+    }
+    el.addEventListener('input', on)
+    el.addEventListener('change', on)
+    el.addEventListener('blur', on)
+    return () => {
+      el.removeEventListener('input', on)
+      el.removeEventListener('change', on)
+      el.removeEventListener('blur', on)
+    }
+  }, [])
+  return (
+    <span className="date-wrap">
+      <input ref={ref} className="input" type="date" value={p.value} min={p.min} max={p.max} aria-label={p.label} onChange={(e) => push(e.target.value)} />
+      {p.clearable && p.value && (
+        <button type="button" className="date-clear" aria-label={t('clearDate')} onClick={() => cb.current('')}><IconX /></button>
+      )}
+    </span>
   )
 }

@@ -161,6 +161,7 @@ export const S = {
   dateFrom: ['С', 'From'],
   dateTo: ['По', 'To'],
   resetDates: ['Сбросить даты', 'Clear dates'],
+  clearDate: ['Очистить дату', 'Clear date'],
   spentList: ['Траты', 'Spending'],
   allBuckets: ['Все статьи', 'All categories'],
   noSpend: ['Трат за этот период нет.', 'No spending in this period.'],
