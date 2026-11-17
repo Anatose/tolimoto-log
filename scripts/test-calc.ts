@@ -142,4 +142,32 @@ const loc = localize([['=IF(A1="a,b",1,2)', 'x,y']], 'ru_RU')
 eq('localize', loc, [['=IF(A1="a,b";1;2)', 'x,y']])
 eq('localize en untouched', localize([['=IF(A1,1,2)']], 'en_US'), [['=IF(A1,1,2)']])
 void (null as unknown as DBT)
+// Fuelio backup: fill-ups, costs sorted into service log and expenses
+{
+  const { parseFuelly: pf, addFuellyRows: add } = await import('../src/fuelly')
+  const fuelio = `"## Vehicle"
+"Name","Description","DistUnit","FuelUnit","ConsumptionUnit","ImportCSVDateFormat","VIN","Insurance","Plate","Make","Model","Year","TankCount","Tank1Type","Tank2Type","Active","Tank1Capacity","Tank2Capacity"
+"Toyota Auris","","0","0","0","yyyy-MM-dd","","","","toyota","auris","2018","1","100","0","1","50.0","0.0"
+"## Log"
+"Data","Odo (km)","Fuel (litres)","Full","Price (optional)","l/100km (optional)","latitude (optional)","longitude (optional)","City (optional)","Notes (optional)","Missed","TankNumber","FuelType","VolumePrice","StationID (optional)","ExcludeDistance","UniqueId","TankCalc"
+"2018-10-07","424","33.04","1","1172.92","0.0","50.0436","14.4406","Praha, Olbrachtova - Mol","","0","1","0","35.5","329285","0","105","0.0"
+"2018-09-17","5","48.02","0","1675.9","0.0","50.0165","14.4026","Praha - OMV","","0","1","0","34.9","107548","0","103","0.0"
+"## CostCategories"
+"CostTypeID","Name","priority","color"
+"1","Service","0","#ff0000"
+"2","Insurance","0","#00ff00"
+"## Costs"
+"CostTitle","Date","Odo","CostTypeID","Notes","Cost","flag","idR","read","RemindOdo","RemindDate","isTemplate","RepeatOdo","RepeatMonths","isIncome","UniqueId"
+"Oil change","2018-11-01","900","1","5W-30","120.5","0","0","1","0","2011-01-01","0","0","0","0","1"
+"OC","2018-12-01","0","2","","300","0","0","1","0","2011-01-01","0","0","0","0","2"
+`
+  const cars = pf(fuelio)
+  eq('fuelio car', [cars.length, cars[0].model, cars[0].source, cars[0].rows.length], [1, 'Toyota Auris', 'Fuelio', 2])
+  eq('fuelio rows', cars[0].rows.map((r) => [r.date, r.odometer, r.liters, r.total, r.full]), [['2018-09-17', 5, 48.02, 1675.9, false], ['2018-10-07', 424, 33.04, 1172.92, true]])
+  eq('fuelio costs', cars[0].costs!.map((c) => [c.title, c.category, c.kind, c.odometer]), [['Oil change', 'service', null, 900], ['OC', null, 'insurance', null]])
+  const d0 = { v: 1, vehicles: [], service: [], fuel: [], expenses: [], schedule: [] } as unknown as Parameters<typeof add>[0]
+  const r1 = add(d0, 'v', cars[0]); const r2 = add(d0, 'v', cars[0])
+  eq('fuelio import twice', [r1.added, r2.added, r2.replaced, d0.fuel.length, d0.service.length, d0.expenses.length], [4, 0, 4, 2, 1, 1])
+}
+
 process.exit(failed ? 1 : 0)

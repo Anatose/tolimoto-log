@@ -4,7 +4,7 @@ import { PRESETS, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
-import { addFuellyRows, guessType, lumpOverlaps, parseFuelly, type FuellyCar, type FuelOverlap } from './fuelly'
+import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
 import { connect, disconnect, syncNow, useSync } from './sync'
@@ -111,7 +111,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
           <button type="button" className="btn link" onClick={() => file.current?.click()}>{t('importJson')}</button>
           <input ref={file} type="file" accept="application/json,.json" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { importJson(await f.text()) } catch { setErr(true) } }} />
           <button type="button" className="btn link" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
-          <input ref={fuellyFile} type="file" accept=".csv,text/csv,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { nav.open({ k: 'fuelly', cars: parseFuelly(await f.text()) }) } catch { setErr(true) } e.target.value = '' }} />
+          <input ref={fuellyFile} type="file" multiple accept=".csv,text/csv,text/plain" hidden onChange={async (e) => { const fs = [...(e.target.files ?? [])]; if (!fs.length) return; try { nav.open({ k: 'fuelly', cars: parseFuelFiles(await Promise.all(fs.map((f) => f.text()))) }) } catch { setErr(true) } e.target.value = '' }} />
           {err && <div className="notice warn" role="status">{t('importErr')}</div>}
         </>
       )}
@@ -609,10 +609,11 @@ export function SettingsSheet() {
     if (file.current) file.current.value = ''
   }
   const fuellyFile = useRef<HTMLInputElement>(null)
-  const onFuelly = async (f: File | undefined) => {
-    if (!f) return
+  const onFuelly = async (files: FileList | null) => {
+    const fs = [...(files ?? [])]
+    if (!fs.length) return
     try {
-      nav.open({ k: 'fuelly', cars: parseFuelly(await f.text()) })
+      nav.open({ k: 'fuelly', cars: parseFuelFiles(await Promise.all(fs.map((f) => f.text()))) })
     } catch {
       setMsg(t('fuellyBad'))
     }
@@ -644,12 +645,12 @@ export function SettingsSheet() {
       <button type="button" className="btn" onClick={() => file.current?.click()}>{t('importJson')}</button>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
       <button type="button" className="btn" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
-      <input ref={fuellyFile} type="file" accept=".csv,text/csv,text/plain" hidden onChange={(e) => onFuelly(e.target.files?.[0])} />
+      <input ref={fuellyFile} type="file" multiple accept=".csv,text/csv,text/plain" hidden onChange={(e) => onFuelly(e.target.files)} />
       {msg && <div className="notice" role="status">{msg}</div>}
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
-      <p className="muted">Tolimoto Log · {t('version')} 0.4.3</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.4.4</p>
     </Sheet>
   )
 }
@@ -714,7 +715,7 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
       {cars.map((c, i) => (
         <div className="card" key={c.name}>
           <b>{c.model || c.name}</b>
-          <span className="muted small num">{c.rows.length} {t('fuellyRows')} · {date(c.rows[0].date)} – {date(c.rows[c.rows.length - 1].date)} · {n(c.rows[0].odometer)}–{n(c.rows[c.rows.length - 1].odometer)} {t('km')}</span>
+          <span className="muted small num">{c.source ?? 'Fuelly'} · {c.rows.length} {t('fuellyRows')}{c.rows.length ? ` · ${date(c.rows[0].date)} – ${date(c.rows[c.rows.length - 1].date)} · ${n(c.rows[0].odometer)}–${n(c.rows[c.rows.length - 1].odometer)} ${t('km')}` : ''}{c.costs?.length ? ` · ${c.costs.length} ${t('fuelioCosts')}` : ''}</span>
           {c.converted && <span className="small">{t('fuellyMiles')}</span>}
           <label className="field">
             <span className="label">{t('fuellyTo')}</span>
