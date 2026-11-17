@@ -1,7 +1,7 @@
 import { BackupReminder } from './Onboarding'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { activeId, storageMode, today, update, useDB } from './store'
-import { useT, type K } from './i18n'
+import { locale, useT, type K } from './i18n'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals, years, type SchedState } from './calc'
 import { Badge, Bar, Chips, DateInput, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
 import { googleConfigured, signIn } from './google'
@@ -88,7 +88,7 @@ function SyncPill() {
     const mem = storageMode() === 'memory'
     return <button type="button" className={'pill' + (mem ? ' warn' : '')} onClick={() => nav.open({ k: 'safety' })}><span className="dot" /> {mem ? t('storageTemp') : t('savedLocal')} <span aria-hidden="true">›</span></button>
   }
-  const time = (iso: string) => new Date(iso).toLocaleTimeString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' })
+  const time = (iso: string) => new Date(iso).toLocaleTimeString(locale(db.settings.lang), { hour: '2-digit', minute: '2-digit' })
   const [cls, text, act] =
     st.s === 'syncing' ? ['busy', t('sSyncing'), undefined]
     : st.s === 'synced' ? ['ok', `${t('sSynced')} ${time(st.at)}`, () => void syncNow()]
@@ -199,7 +199,7 @@ function RowCard({ r, avg, currency }: { r: Row; avg: number | null; currency: s
 
 export function Journal() {
   const db = useDB()
-  const { t, n } = useT()
+  const { t, n, date } = useT()
   const vid = activeId(db)
   const v = db.vehicles.find((x) => x.id === vid)
   const [q, setQ] = useState('')
@@ -213,6 +213,9 @@ export function Journal() {
   const qq = q.trim().toLowerCase()
   const shown = rows.filter((r) => (kind === 'all' || r.kind === kind) && (!from || r.date >= from) && (!to || r.date <= to) && (!tag || r.tags.includes(tag)) && (!qq || r.text.includes(qq)))
   const sum = shown.reduce((s, r) => s + (r.amount ?? 0), 0)
+  const byBucket = (['service', 'accessories', 'fuel', 'other'] as Bucket[])
+    .map((b) => ({ b, amount: shown.reduce((s, r) => s + (r.bucket === b ? r.amount ?? 0 : 0), 0) }))
+    .filter((x) => x.amount !== 0)
   return (
     <>
       <h1>{t('tabJournal')} <small className="muted">· {v.name}</small></h1>
@@ -229,9 +232,17 @@ export function Journal() {
           {allTags.map((g) => (<option key={g} value={g}>#{g}</option>))}
         </select>
       )}
+      {(from || to) && (
+        <div className="card period-total">
+          <div className="total-row"><span>{t('periodSpent')}<br /><small className="muted num">{from ? date(from) : '…'} – {to ? date(to) : '…'}</small></span><b className="num">{n(sum, 2)} {v.currency}</b></div>
+          {byBucket.length > 1 && byBucket.map((x) => (
+            <div className="split small" key={x.b}><span className="muted">{t(BUCKET_LABEL[x.b])}</span><span className="num">{n(x.amount, 2)} {v.currency}</span></div>
+          ))}
+        </div>
+      )}
       {shown.length > 0 && (
         <p className="muted small num split">
-          <span>{shown.length} · {n(sum, 2)} {v.currency}</span>
+          <span>{shown.length}{from || to ? '' : ` · ${n(sum, 2)} ${v.currency}`}</span>
           {kind === 'fuel' && avg != null && <span>{t('avgFor')}: {n(avg, 1)} {t('l100')}</span>}
         </p>
       )}

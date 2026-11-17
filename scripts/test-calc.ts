@@ -4,6 +4,7 @@ import { addFuellyRows, lumpOverlaps, parseCsv, parseFuelly } from '../src/fuell
 import { emptyDB, type DB as DBT } from '../src/store'
 import { fromSheet, merge3, toIso, toSheet, type Data } from '../src/sync'
 import { buildSummary, linkCell, localize } from '../src/sheetLook'
+import { CAT_L, HEAD, KIND_L, TYPE_L } from '../src/sheetLang'
 import type { DB, FuelEntry } from '../src/store'
 
 let failed = 0
@@ -131,6 +132,23 @@ eq('ru headings', [ru.service[0][0], ru.fuel[0][6], ru.expenses[0][2]], ['Дат
 eq('ru labels and serial dates', [ru.service[1][3], ru.expenses[1][2], ru.vehicles[1][1], ru.service[1][0]], ['ТО', 'Страховка', 'Мотоцикл', 46266])
 eq('ru round trip', fromSheet(ru).data, sd)
 eq('english sheet still read', fromSheet(toSheet(sd, 'en')).data, sd)
+// every app language writes its own words and reads back; a sheet left in another language is still read
+const LANGS7 = ['ru', 'en', 'uk', 'et', 'lv', 'lt', 'pl'] as const
+for (const l of LANGS7) eq(`${l} round trip`, fromSheet(toSheet(sd, l)).data, sd)
+eq('pl headings and labels', [toSheet(sd, 'pl').service[0][6], toSheet(sd, 'pl').vehicles[1][1]], ['Koszt części', 'Motocykl'])
+// no heading or label may mean two different things across languages
+{
+  const clash: string[] = []
+  for (const c of ['vehicles', 'service', 'fuel', 'schedule', 'expenses'] as const) {
+    const seen = new Map<string, string>()
+    for (const l of LANGS7) for (const [k, h] of Object.entries(HEAD[l][c])) { const x = h.toLowerCase(); if (seen.has(x) && seen.get(x) !== k) clash.push(`${c}:${h}`); seen.set(x, k) }
+  }
+  for (const o of [CAT_L, KIND_L, TYPE_L] as Record<string, Record<string, string>>[]) {
+    const seen = new Map<string, string>()
+    for (const [k, ls] of Object.entries(o)) for (const v of Object.values(ls)) { const x = v.toLowerCase(); if (seen.has(x) && seen.get(x) !== k) clash.push(v); seen.set(x, k) }
+  }
+  eq('no ambiguous sheet words', clash, [])
+}
 // clickable links, several in one cell
 const lc = linkCell('https://a.example/x\nhttps://b.example/y') as { textFormatRuns: { startIndex: number; format: { link?: { uri: string } } }[] }
 eq('links', lc.textFormatRuns.map((r) => [r.startIndex, r.format.link?.uri ?? '']), [[0, 'https://a.example/x'], [19, ''], [20, 'https://b.example/y']])

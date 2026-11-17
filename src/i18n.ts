@@ -1,6 +1,28 @@
 import { useDB, type Lang, type VType } from './store'
+import { uk } from './lang/uk'
+import { et } from './lang/et'
+import { lv } from './lang/lv'
+import { lt } from './lang/lt'
+import { pl } from './lang/pl'
 
-/** Every string as [Russian, English]. */
+/** The app's languages in menu order, by their own names. Same set as tolimoto.com. */
+export const LANGS: { v: Lang; l: string }[] = [
+  { v: 'en', l: 'English' },
+  { v: 'ru', l: 'Русский' },
+  { v: 'uk', l: 'Українська' },
+  { v: 'et', l: 'Eesti' },
+  { v: 'lv', l: 'Latviešu' },
+  { v: 'lt', l: 'Lietuvių' },
+  { v: 'pl', l: 'Polski' },
+]
+
+/** Locale for numbers, dates and times. */
+export const LOCALE: Record<Lang, string> = { ru: 'ru-RU', en: 'en-GB', uk: 'uk-UA', et: 'et-EE', lv: 'lv-LV', lt: 'lt-LT', pl: 'pl-PL' }
+/** Currency suggested for a new vehicle: złoty for Polish, hryvnia for Ukrainian, otherwise euro. */
+export const defaultCurrency = (lang: Lang | null | undefined): string => (lang === 'pl' ? 'zł' : lang === 'uk' ? '₴' : '€')
+export const locale = (lang: Lang | null | undefined): string => LOCALE[lang ?? 'ru'] ?? 'ru-RU'
+
+/** Every string as [Russian, English]; the other languages live in src/lang/<code>.ts. */
 export const S = {
   chooseLang: ['Выберите язык', 'Choose language'],
   savedLocal: ['Сохранено локально', 'Saved on device'],
@@ -216,6 +238,7 @@ export const S = {
   dateFrom: ['С', 'From'],
   dateTo: ['По', 'To'],
   resetDates: ['Сбросить даты', 'Clear dates'],
+  periodSpent: ['Траты за период', 'Spent in this period'],
   clearDate: ['Очистить дату', 'Clear date'],
   spentList: ['Траты', 'Spending'],
   allBuckets: ['Все статьи', 'All categories'],
@@ -272,11 +295,24 @@ export const S = {
 } as const satisfies Record<string, readonly [string, string]>
 
 export type K = keyof typeof S
-export const tr = (lang: Lang | null, k: K): string => S[k][lang === 'en' ? 1 : 0]
+
+/** A language besides Russian and English: every string, plus the names of the preset schedule items by tag. */
+export interface Pack { s: Record<K, string>; preset: Record<string, string> }
+const PACKS: Partial<Record<Lang, Pack>> = { uk, et, lv, lt, pl }
+
+export const tr = (lang: Lang | null, k: K): string => {
+  if (!lang || lang === 'ru') return S[k][0]
+  if (lang === 'en') return S[k][1]
+  return PACKS[lang]?.s[k] ?? S[k][1]
+}
+
+/** Name of a preset schedule item in the given language. */
+export const presetName = (p: { tag: string; name: [string, string] }, lang: Lang): string =>
+  lang === 'ru' ? p.name[0] : lang === 'en' ? p.name[1] : PACKS[lang]?.preset[p.tag] ?? p.name[1]
 
 export function useT() {
   const lang: Lang = useDB().settings.lang ?? 'ru'
-  const loc = lang === 'en' ? 'en-GB' : 'ru-RU'
+  const loc = locale(lang)
   return {
     lang,
     t: (k: K) => tr(lang, k),

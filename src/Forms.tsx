@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { activeId, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
-import { PRESETS, useT, type K } from './i18n'
+import { LANGS, PRESETS, defaultCurrency, locale, presetName, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
@@ -23,8 +23,7 @@ export function LangPick() {
     <div className="center-screen">
       <h1>Tolimoto Log</h1>
       <p className="muted">Выберите язык · Choose language</p>
-      <button type="button" className="btn primary big" onClick={() => pick('ru')}>Русский</button>
-      <button type="button" className="btn primary big" onClick={() => pick('en')}>English</button>
+      {LANGS.map((o) => <button type="button" key={o.v} className="btn" onClick={() => pick(o.v)}>{o.l}</button>)}
     </div>
   )
 }
@@ -39,7 +38,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
   const [name, setName] = useState(ed?.name ?? '')
   const [type, setType] = useState<VType>(ed?.type ?? 'moto')
   const [color, setColor] = useState(ed?.color ?? COLORS.find((c) => !db.vehicles.some((x) => x.color.toLowerCase() === c.toLowerCase())) ?? COLORS[0])
-  const [currency, setCurrency] = useState(ed?.currency ?? '€')
+  const [currency, setCurrency] = useState(ed?.currency ?? defaultCurrency(lang))
   const [odo, setOdo] = useState(ed ? String(ed.odometer) : '')
   const [preset, setPreset] = useState<'typical' | 'empty'>('typical')
   const file = useRef<HTMLInputElement>(null)
@@ -49,7 +48,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
   const save = () => {
     const vid = ed?.id ?? uid()
     update((d) => {
-      const rec = { id: vid, name: name.trim(), type, color, currency: currency.trim() || '€', odometer: parseNum(odo) ?? 0 }
+      const rec = { id: vid, name: name.trim(), type, color, currency: currency.trim() || defaultCurrency(lang), odometer: parseNum(odo) ?? 0 }
       const i = d.vehicles.findIndex((v) => v.id === vid)
       if (i >= 0) d.vehicles[i] = rec
       else {
@@ -57,7 +56,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
         d.settings.activeVehicleId = vid
         if (preset === 'typical')
           for (const p of PRESETS[type])
-            d.schedule.push({ id: uid(), vehicleId: vid, name: p.name[lang === 'en' ? 1 : 0], tag: p.tag, intervalKm: p.km, intervalDays: p.days, hint: '' })
+            d.schedule.push({ id: uid(), vehicleId: vid, name: presetName(p, lang), tag: p.tag, intervalKm: p.km, intervalDays: p.days, hint: '' })
       }
     })
     nav.close()
@@ -625,7 +624,7 @@ export function SettingsSheet() {
     <Sheet title={t('settings')}>
       <div className="field">
         <span className="label">{t('language')}</span>
-        <Chips label={t('language')} value={db.settings.lang ?? 'ru'} onChange={(v) => update((d) => { d.settings.lang = v })} options={[{ v: 'ru', l: 'Русский' }, { v: 'en', l: 'English' }]} />
+        <Chips label={t('language')} value={db.settings.lang ?? 'ru'} onChange={(v) => update((d) => { d.settings.lang = v })} options={LANGS} />
       </div>
       <div className="field">
         <span className="label">{t('theme')}</span>
@@ -644,7 +643,7 @@ export function SettingsSheet() {
       <button type="button" className="btn" onClick={() => doExport('csv')}>{t('exportCsv')}</button>
       <button type="button" className="btn primary" onClick={() => nav.push({ k: 'safety' })}>{t('dsTitle')}</button>
       <button type="button" className="btn" onClick={async () => { if (await backupNow()) setMsg(t('backupSaved')) }}>{t('exportJson')}</button>
-      <span className="hint">{t('dsLast')}: {db.settings.lastBackup ? new Date(db.settings.lastBackup).toLocaleDateString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU') : t('dsNever')}</span>
+      <span className="hint">{t('dsLast')}: {db.settings.lastBackup ? new Date(db.settings.lastBackup).toLocaleDateString(locale(db.settings.lang)) : t('dsNever')}</span>
       <button type="button" className="btn" onClick={() => file.current?.click()}>{t('importJson')}</button>
       <input ref={file} type="file" accept="application/json,.json" hidden onChange={(e) => onFile(e.target.files?.[0])} />
       <button type="button" className="btn" onClick={() => fuellyFile.current?.click()}>{t('importFuelly')}</button>
@@ -683,7 +682,7 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
         if (vid === 'new') {
           vid = uid()
           const used = new Set(d.vehicles.map((v) => v.color.toLowerCase()))
-          d.vehicles.push({ id: vid, name: c.model || c.name, type: types[i], color: COLORS.find((x) => !used.has(x.toLowerCase())) ?? COLORS[0], currency: '€', odometer: c.rows[c.rows.length - 1]?.odometer ?? 0 })
+          d.vehicles.push({ id: vid, name: c.model || c.name, type: types[i], color: COLORS.find((x) => !used.has(x.toLowerCase())) ?? COLORS[0], currency: defaultCurrency(db.settings.lang), odometer: c.rows[c.rows.length - 1]?.odometer ?? 0 })
         }
         const r = addFuellyRows(d, vid, c)
         added += r.added
@@ -790,7 +789,7 @@ export function SyncLine() {
   const { t } = useT()
   const st = useSync()
   const last = db.settings.google?.lastSync
-  const time = (iso: string) => new Date(iso).toLocaleString(db.settings.lang === 'en' ? 'en-GB' : 'ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const time = (iso: string) => new Date(iso).toLocaleString(locale(db.settings.lang), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
   const text =
     st.s === 'syncing' ? t('sSyncing')
     : st.s === 'offline' ? t('sOffline')

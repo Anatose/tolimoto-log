@@ -1,12 +1,13 @@
 /*
- * How the spreadsheet looks: column headings and values in the app's language, real dates,
+ * How the spreadsheet looks: column headings and values in the app's language (words in sheetLang.ts), real dates,
  * money formats, checkboxes, clickable links, and a "Summary" tab built from formulas.
  * Only the data tabs are read back; everything here is presentation.
  */
 import type { Category, ExpenseKind, Lang, VType } from './store'
 import type { Cell } from './google'
 
-export type Coll = 'vehicles' | 'service' | 'fuel' | 'schedule' | 'expenses'
+import { CAT_L, HEAD, KIND_L, SUM_T, TYPE_L, type Coll } from './sheetLang'
+export type { Coll }
 
 export const TABS: Record<Coll, { title: string; cols: string[] }> = {
   vehicles: { title: 'Garage', cols: ['name', 'type', 'currency', 'odometer', 'color', 'id'] },
@@ -18,39 +19,23 @@ export const TABS: Record<Coll, { title: string; cols: string[] }> = {
 export const COLLS = Object.keys(TABS) as Coll[]
 export const SUMMARY = 'Summary'
 
-/** Russian column headings; the English keys stay valid for reading. */
-const HEAD_RU: Record<Coll, Record<string, string>> = {
-  vehicles: { name: 'Название', type: 'Тип', currency: 'Валюта', odometer: 'Пробег (введён вручную)', color: 'Цвет', id: 'id' },
-  service: { date: 'Дата', vehicle: 'Транспорт', odometer: 'Пробег, км', category: 'Категория', description: 'Описание работ / запчасти', tags: 'Теги', parts: 'Запчасти', labour: 'Работа', total: 'Итого', notes: 'Заметки', media: 'Фото и чеки', id: 'id' },
-  fuel: { date: 'Дата', vehicle: 'Транспорт', odometer: 'Пробег, км', liters: 'Литры', total: 'Сумма', price_per_liter: 'Цена за литр', full_tank: 'Полный бак', missed_previous: 'Пропущена прошлая заправка', station: 'АЗС / заметка', id: 'id' },
-  schedule: { vehicle: 'Транспорт', name: 'Узел', tag: 'Тег', interval_km: 'Интервал, км', interval_days: 'Интервал, дни', hint: 'Шпаргалка из мануала', id: 'id' },
-  expenses: { date: 'Дата', vehicle: 'Транспорт', kind: 'Вид', amount: 'Сумма', note: 'Заметка', media: 'Фото и чеки', id: 'id' },
-}
-const HEAD_EN: Record<Coll, Record<string, string>> = {
-  vehicles: { name: 'Name', type: 'Type', currency: 'Currency', odometer: 'Odometer (entered by hand)', color: 'Colour', id: 'id' },
-  service: { date: 'Date', vehicle: 'Vehicle', odometer: 'Odometer, km', category: 'Category', description: 'Work done / parts', tags: 'Tags', parts: 'Parts', labour: 'Labour', total: 'Total', notes: 'Notes', media: 'Photos and receipts', id: 'id' },
-  fuel: { date: 'Date', vehicle: 'Vehicle', odometer: 'Odometer, km', liters: 'Litres', total: 'Total', price_per_liter: 'Price per litre', full_tank: 'Full tank', missed_previous: 'Missed previous fill-up', station: 'Station / note', id: 'id' },
-  schedule: { vehicle: 'Vehicle', name: 'Item', tag: 'Tag', interval_km: 'Interval, km', interval_days: 'Interval, days', hint: 'Notes from the manual', id: 'id' },
-  expenses: { date: 'Date', vehicle: 'Vehicle', kind: 'Type', amount: 'Amount', note: 'Note', media: 'Photos and receipts', id: 'id' },
-}
-export const heading = (c: Coll, key: string, lang: Lang) => (lang === 'en' ? HEAD_EN : HEAD_RU)[c][key] ?? key
+const ALL_LANGS = Object.keys(HEAD) as Lang[]
+export const heading = (c: Coll, key: string, lang: Lang) => (HEAD[lang] ?? HEAD.en)[c][key] ?? key
 
 /** Maps a heading cell, in any language or as the plain key, to its key. */
 export function keyOfHeading(c: Coll, h: string): string | null {
   const s = h.trim().toLowerCase()
-  for (const k of TABS[c].cols) if (k === s || HEAD_RU[c][k]?.toLowerCase() === s || HEAD_EN[c][k]?.toLowerCase() === s) return k
+  for (const k of TABS[c].cols) if (k === s || ALL_LANGS.some((l) => HEAD[l][c][k]?.toLowerCase() === s)) return k
   return null
 }
 
-const CAT_L: Record<Category, [string, string]> = { service: ['ТО', 'Service'], consumables: ['Расходники', 'Consumables'], repair: ['Ремонт', 'Repair'], accessories: ['Аксессуары', 'Accessories'] }
-const KIND_L: Record<ExpenseKind, [string, string]> = { insurance: ['Страховка', 'Insurance'], inspection: ['Техосмотр', 'Inspection'], tax: ['Налог', 'Tax'], fuel: ['Топливо', 'Fuel'], other: ['Прочее', 'Other'] }
-const TYPE_L: Record<VType, [string, string]> = { moto: ['Мотоцикл', 'Motorcycle'], car: ['Автомобиль', 'Car'] }
-const pickL = (l: [string, string], lang: Lang) => l[lang === 'en' ? 1 : 0]
+const pickL = (l: Record<Lang, string>, lang: Lang) => l[lang] ?? l.en
 export const catLabel = (c: Category, lang: Lang) => pickL(CAT_L[c], lang)
 export const kindLabel = (k: ExpenseKind, lang: Lang) => pickL(KIND_L[k], lang)
 export const typeLabel = (t: VType, lang: Lang) => pickL(TYPE_L[t], lang)
 
-const lower = (o: Record<string, [string, string]>) => Object.fromEntries(Object.entries(o).flatMap(([k, [ru, en]]) => [[k, k], [ru.toLowerCase(), k], [en.toLowerCase(), k]]))
+/** Label in any language (or the plain key), lower-cased → key. */
+const lower = (o: Record<string, Record<Lang, string>>) => Object.fromEntries(Object.entries(o).flatMap(([k, ls]) => [[k, k], ...Object.values(ls).map((x) => [x.toLowerCase(), k])]))
 export const CAT_READ = lower(CAT_L) as Record<string, Category>
 export const KIND_READ = { ...lower(KIND_L), 'топливо суммой': 'fuel' } as Record<string, ExpenseKind>
 export const TYPE_READ = lower(TYPE_L) as Record<string, VType>
@@ -131,18 +116,7 @@ export interface SummaryInput {
   years: Record<string, number[]>
 }
 
-const T = {
-  note: ['Эту вкладку собирает приложение Tolimoto Log. Правки здесь не сохраняются: меняйте данные на других вкладках.', 'This tab is built by the Tolimoto Log app. Edits here are not kept: change the data on the other tabs.'],
-  odo: ['Текущий пробег, км', 'Current odometer, km'],
-  sched: ['Регламент', 'Schedule'],
-  item: ['Узел', 'Item'], tag: ['Тег', 'Tag'], ikm: ['Интервал, км', 'Interval, km'], idays: ['Интервал, дни', 'Interval, days'],
-  lkm: ['Последняя замена, км', 'Last done, km'], ldate: ['Последняя замена, дата', 'Last done, date'],
-  rkm: ['Осталось, км', 'Left, km'], rdays: ['Осталось, дней', 'Left, days'], status: ['Статус', 'Status'], hint: ['Шпаргалка', 'Notes'],
-  spend: ['Траты по годам', 'Spending by year'],
-  year: ['Год', 'Year'], svc: ['ТО и ремонт', 'Service and repair'], acc: ['Аксессуары', 'Accessories'], fuel: ['Топливо', 'Fuel'], other: ['Страховка и прочее', 'Insurance and other'], total: ['Итого', 'Total'], all: ['Всего', 'All years'],
-  none: ['Нет записей', 'No records'], over: ['Просрочено', 'Overdue'], soon: ['Скоро', 'Soon'], ok: ['Норма', 'OK'],
-} as const
-type TK = keyof typeof T
+type TK = keyof typeof SUM_T
 
 export const summarySignature = (s: SummaryInput) => 'tl-summary-v1:' + JSON.stringify(s)
 
@@ -156,7 +130,7 @@ const ref = (c: Coll, key: string) => {
 
 /** Values (formulas) and formatting requests of the Summary tab. Formulas use commas; see localize(). */
 export function buildSummary(s: SummaryInput, sheetId: number): { values: Cell[][]; requests: unknown[] } {
-  const tr = (k: TK) => T[k][s.lang === 'en' ? 1 : 0]
+  const tr = (k: TK) => SUM_T[k][s.lang] ?? SUM_T[k].en
   const acc = catLabel('accessories', s.lang)
   const fuelKind = kindLabel('fuel', s.lang)
   const S = (k: string) => ref('service', k)

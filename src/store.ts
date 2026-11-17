@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-export type Lang = 'ru' | 'en'
+export type Lang = 'ru' | 'en' | 'uk' | 'et' | 'lv' | 'lt' | 'pl'
 export type VType = 'moto' | 'car'
 export type Category = 'service' | 'consumables' | 'repair' | 'accessories'
 export type ExpenseKind = 'insurance' | 'inspection' | 'tax' | 'fuel' | 'other'

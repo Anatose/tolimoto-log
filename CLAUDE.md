@@ -30,7 +30,12 @@
 - `src/google.ts`, `src/sync.ts`, `src/sheetLook.ts` — вход Google и двусторонняя
   синхронизация с таблицей. `src/config.ts`: client ID и scopes (`drive.file email`).
 - `src/exportImport.ts`, `src/fuelly.ts` — JSON/CSV, импорт Fuelly и Fuelio.
-- `src/i18n.ts` — тексты, языки приложения: ru и en. Новые строки — сразу на оба языка.
+- `src/i18n.ts` — тексты ru и en; `src/lang/<код>.ts` — uk, et, lv, lt, pl (как на сайте).
+  Новые строки — сразу во все 7 (TypeScript не соберётся, если ключа нет). Термины — как в
+  инструкции на tolimoto.com. Валюта нового транспорта: pl — zł, uk — ₴, остальные — €.
+- `src/sheetLang.ts` — слова Google-таблицы на 7 языках (заголовки, категории, вкладка Summary),
+  по шаблонам владельца «Maintenance Tables» на Google Диске. Названия вкладок — только
+  английские. Чтение понимает слова любого языка; тест проверяет, что они не пересекаются.
 - `src/Forms.tsx` — настройки; там же строка версии. При релизе менять версию и в
   `package.json`, и в Forms.tsx (сейчас 0.5.1).
 

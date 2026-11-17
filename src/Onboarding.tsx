@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { getDB, update, useDB, type DB } from './store'
-import { useT } from './i18n'
+import { locale, useT } from './i18n'
 import { googleConfigured, signIn } from './google'
 import { backupNow, importJson } from './exportImport'
 import { IconFuel, IconWrench, Sheet, useNav } from './ui'
@@ -37,7 +37,7 @@ export function listenForInstall(): void {
 
 /** Link to the guide on tolimoto.com in the app's language. */
 export const guideUrl = (lang: string, anchor = ''): string =>
-  `https://tolimoto.com/${lang === 'ru' ? 'ru/' : ''}guide.html${anchor ? '#' + anchor : ''}`
+  `https://tolimoto.com/${lang === 'en' ? '' : lang + '/'}guide.html${anchor ? '#' + anchor : ''}`
 
 /* ---------- install ---------- */
 
@@ -200,7 +200,7 @@ export function DataSafety() {
   const [msg, setMsg] = useState('')
   const g = db.settings.google
   const last = db.settings.lastBackup
-  const when = last ? new Date(last).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU') : t('dsNever')
+  const when = last ? new Date(last).toLocaleDateString(locale(lang)) : t('dsNever')
   return (
     <Sheet title={t('dsTitle')}>
       <div className={'notice' + (g ? '' : ' warn')}><span>{g ? t('dsGoogleOn') : t('dsLocal')}</span></div>
