@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { getDB, kvGet, kvSet, onDataChange, uid, update, type Category, type DB, type ExpenseKind, type VType } from './store'
-import { AuthError, ensureLayout, getToken, googleConfigured, readRanges, sheetBatchUpdate, sheetTabs, userEmail, writeRanges, type Cell } from './google'
+import { AuthError, ensureLayout, getToken, googleConfigured, readRanges, sheetBatchUpdate, sheetTabs, signIn, userEmail, writeRanges, type Cell } from './google'
 
 /* ---------- sheet layout ---------- */
 
@@ -308,6 +308,31 @@ export async function disconnect(): Promise<void> {
   setStatus({ s: 'off' })
 }
 
+/* ---------- renewing the Google session without the user ---------- */
+
+let uiBusy = false
+/** The app tells sync when a form or another screen is open: never leave the app then. */
+export const setUiBusy = (b: boolean) => { uiBusy = b }
+const AUTO_KEY = 'tl-auto-auth-at'
+
+/**
+ * The Google session lasts about an hour. When it has run out, the app goes to Google and back
+ * by itself (prompt=none: no screen as long as the user is still signed in to Google there).
+ * Only when nothing is being typed, with a network, and at most once in 10 minutes, so a refusal
+ * can never turn into a loop. If Google wants the user, the top bar shows "Sign in again".
+ */
+export function renewSession(): boolean {
+  const g = getDB().settings.google
+  if (!googleConfigured() || !g || getToken() || !navigator.onLine || uiBusy) return false
+  let last = 0
+  try { last = Number(localStorage.getItem(AUTO_KEY) ?? 0) } catch { return false }
+  if (Date.now() - last < 10 * 60_000) return false
+  try { localStorage.setItem(AUTO_KEY, String(Date.now())) } catch { return false }
+  setStatus({ s: 'syncing' })
+  signIn({ email: g.email, auto: true })
+  return true
+}
+
 let timer: number | undefined
 export function initSync(): void {
   if (!googleConfigured()) return
@@ -317,12 +342,13 @@ export function initSync(): void {
     timer = window.setTimeout(() => void syncNow(), 4000)
   })
   window.addEventListener('online', () => void syncNow())
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void syncNow() })
-  void syncNow()
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !renewSession()) void syncNow() })
+  if (!renewSession()) void syncNow()
 }
 
 /** Called once at start with what the sign-in redirect brought back. */
 export function afterAuth(r: import('./google').AuthReturn): void {
   if (r.kind === 'ok') void connect()
+  else if (r.kind === 'error' && r.auto) setStatus({ s: 'signin' })
   else if (r.kind === 'error') setStatus({ s: 'error', msg: 'Google: ' + r.error })
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDB, useLoaded } from './store'
+import { setUiBusy } from './sync'
 import { useT } from './i18n'
 import { IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
@@ -30,6 +31,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('home')
   const [stack, setStack] = useState<NonNullable<Modal>[]>([])
   const modal = stack.length ? stack[stack.length - 1] : null
+  useEffect(() => setUiBusy(stack.length > 0), [stack.length])
   const started = useRef(false)
   const nav = useMemo(() => ({
     open: (m: Modal) => setStack((s) => (m ? [...s.slice(0, -1), m] : s.slice(0, -1))),

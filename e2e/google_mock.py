@@ -9,6 +9,8 @@ class FakeGoogle:
         self.ids = itertools.count(1)
         self.calls = []
         self.uploads = []
+        self.auth_calls = []
+        self.silent_mode = 'ok'
 
     def nid(self, p): return f"{p}{next(self.ids)}"
 
@@ -19,6 +21,10 @@ class FakeGoogle:
         self.calls.append(f"{req.method} {u.netloc}{u.path}")
         ok = lambda body: route.fulfill(status=200, content_type='application/json', body=json.dumps(body))
         if u.netloc == 'accounts.google.com':
+            self.auth_calls.append(q.get('prompt', [''])[0])
+            if q.get('prompt', [''])[0] == 'none' and self.silent_mode == 'need_login':
+                frag = urllib.parse.urlencode({'error': 'interaction_required', 'state': q['state'][0]})
+                return await route.fulfill(status=302, headers={'Location': q['redirect_uri'][0] + '#' + frag})
             frag = urllib.parse.urlencode({'access_token': 'tok-123', 'expires_in': '3599', 'token_type': 'Bearer',
                                            'scope': 'email https://www.googleapis.com/auth/drive.file openid', 'state': q['state'][0]})
             return await route.fulfill(status=302, headers={'Location': q['redirect_uri'][0] + '#' + frag})

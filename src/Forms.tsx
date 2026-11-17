@@ -649,7 +649,7 @@ export function SettingsSheet() {
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
-      <p className="muted">Tolimoto Log · {t('version')} 0.4.1</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.4.2</p>
     </Sheet>
   )
 }

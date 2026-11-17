@@ -35,10 +35,10 @@ export function dropToken(): void {
 }
 
 /** Leaves the app for Google's sign-in page; it comes back to the same address. */
-export function signIn(opts: { email?: string; silent?: boolean } = {}): void {
+export function signIn(opts: { email?: string; silent?: boolean; auto?: boolean } = {}): void {
   const state = Math.random().toString(36).slice(2) + Date.now().toString(36)
   try {
-    localStorage.setItem(STATE_KEY, JSON.stringify({ state, silent: !!opts.silent, email: opts.email ?? '' }))
+    localStorage.setItem(STATE_KEY, JSON.stringify({ state, silent: !!opts.silent || !!opts.auto, auto: !!opts.auto, email: opts.email ?? '' }))
   } catch {
     /* no storage */
   }
@@ -51,11 +51,11 @@ export function signIn(opts: { email?: string; silent?: boolean } = {}): void {
     state,
   })
   if (opts.email) q.set('login_hint', opts.email)
-  if (opts.silent) q.set('prompt', 'none')
+  if (opts.silent || opts.auto) q.set('prompt', 'none')
   location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + q.toString())
 }
 
-export type AuthReturn = { kind: 'none' } | { kind: 'ok' } | { kind: 'error'; error: string }
+export type AuthReturn = { kind: 'none' } | { kind: 'ok' } | { kind: 'error'; error: string; auto?: boolean }
 
 /** Reads Google's answer from the address after the redirect and removes it from the address bar. */
 export function handleAuthReturn(): AuthReturn {
@@ -63,7 +63,7 @@ export function handleAuthReturn(): AuthReturn {
   if (!h.includes('access_token=') && !h.includes('error=')) return { kind: 'none' }
   const p = new URLSearchParams(h)
   history.replaceState(null, '', location.pathname + location.search)
-  let saved: { state: string; silent: boolean; email: string } | null = null
+  let saved: { state: string; silent: boolean; auto?: boolean; email: string } | null = null
   try {
     saved = JSON.parse(localStorage.getItem(STATE_KEY) ?? 'null')
     localStorage.removeItem(STATE_KEY)
@@ -73,7 +73,9 @@ export function handleAuthReturn(): AuthReturn {
   if (!saved || p.get('state') !== saved.state) return { kind: 'error', error: 'state' }
   const err = p.get('error')
   if (err) {
-    // A silent attempt that needs the user: go again with the normal screen.
+    // An automatic attempt never turns into a screen the user did not ask for.
+    if (saved.auto) return { kind: 'error', error: err, auto: true }
+    // A tapped "Sign in again" that needs the user: go again with the normal screen.
     if (saved.silent && (err === 'interaction_required' || err === 'login_required' || err === 'consent_required')) {
       signIn({ email: saved.email })
       return { kind: 'none' }

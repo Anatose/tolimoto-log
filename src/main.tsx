@@ -8,8 +8,8 @@ import './styles.css'
 
 const auth = handleAuthReturn()
 void loadDB().then(() => {
-  initSync()
   afterAuth(auth)
+  initSync()
 })
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
