@@ -210,4 +210,14 @@ void (null as unknown as DBT)
   const few = normalize({ fuel: d.fuel.slice(0, 5) })
   eq('no reminder for a few records', backupDue(few, now), false)
 }
+// preset schedule names follow the app language; renamed items stay
+{
+  const { relabelPresets } = await import('../src/i18n')
+  const items = [{ tag: 'engineoil', name: 'Масло двигателя' }, { tag: 'chain', name: 'Моя цепь DID' }, { tag: 'mytag', name: 'Свой узел' }]
+  eq('relabel to pl', [relabelPresets(items, 'pl'), items.map((x) => x.name)], [true, ['Olej silnikowy', 'Моя цепь DID', 'Свой узел']])
+  eq('relabel back to ru', [relabelPresets(items, 'ru'), items[0].name], [true, 'Масло двигателя'])
+  eq('relabel no-op', relabelPresets(items, 'ru'), false)
+}
+
 process.exit(failed ? 1 : 0)
+

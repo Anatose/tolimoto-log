@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useDB, useLoaded } from './store'
+import { update, useDB, useLoaded } from './store'
 import { setUiBusy } from './sync'
-import { useT } from './i18n'
+import { relabelPresets, useT } from './i18n'
 import { IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
 import { DataSafety, InstallIntro, Tour, isStandalone } from './Onboarding'
@@ -53,6 +53,13 @@ export default function App() {
     mq.addEventListener('change', apply)
     return () => mq.removeEventListener('change', apply)
   }, [db.settings.theme, db.settings.lang])
+
+  // preset schedule items follow the app language (also fixes items made before a language switch)
+  useEffect(() => {
+    const lang = db.settings.lang
+    if (!loaded || !lang) return
+    if (relabelPresets(db.schedule.map((x) => ({ ...x })), lang)) update((d) => { relabelPresets(d.schedule, lang) })
+  }, [loaded, db.settings.lang, db.schedule])
 
   useEffect(() => {
     if (!loaded || started.current) return

@@ -353,3 +353,26 @@ export const PRESETS: Record<VType, { tag: string; name: [string, string]; km: n
     { tag: 'brakefluid', name: ['Тормозная жидкость', 'Brake fluid'], km: null, days: 730 },
   ],
 }
+
+/** Every name a preset item has had in any language, by tag. */
+const PRESET_NAMES: Record<string, Set<string>> = {}
+for (const p of [...PRESETS.moto, ...PRESETS.car]) {
+  const set = (PRESET_NAMES[p.tag] ??= new Set())
+  for (const l of ['ru', 'en', ...Object.keys(PACKS)] as Lang[]) set.add(presetName(p, l).toLowerCase())
+}
+
+/**
+ * Renames schedule items that still carry a preset's name (in any language) to that preset's name
+ * in `lang`, so "Масло двигателя" reads "Olej silnikowy" in Polish. Items the owner renamed are left alone.
+ * Mutates the items; returns true if anything changed.
+ */
+export function relabelPresets(items: { tag: string; name: string }[], lang: Lang): boolean {
+  let changed = false
+  for (const it of items) {
+    const p = [...PRESETS.moto, ...PRESETS.car].find((x) => x.tag === it.tag)
+    if (!p || !PRESET_NAMES[it.tag]?.has(it.name.trim().toLowerCase())) continue
+    const want = presetName(p, lang)
+    if (it.name !== want) { it.name = want; changed = true }
+  }
+  return changed
+}
