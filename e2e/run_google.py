@@ -56,14 +56,11 @@ async def main():
         await pg.wait_for_timeout(6000)
         out['uploads'] = g.uploads
         out['media_in_sheet'] = [r[10] for r in g.book()['Service log'] if r[4] == 'Чек за колодки']
-        # 5. expired token -> pill asks to sign in again, tap does a silent sign-in and syncs
+        # 5. expired token -> on return to the app the session is renewed by itself (see run_renew.py)
         await pg.evaluate("localStorage.removeItem('tl-google-token')")
         await pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
-        await pg.wait_for_selector('.pill.warn >> text=Войти снова', timeout=5000)
-        await pg.screenshot(path='/tmp/g3-signin.png')
-        await pg.click('.pill.warn')
         await pg.wait_for_selector('.pill.ok', timeout=15000)
-        out['reauth'] = 'ok'
+        out['reauth'] = g.auth_calls[-1] == 'none' and 'silent ok'
         # 6. settings shows account and links
         await pg.click('button[aria-label="Настройки"]')
         out['settings'] = (await pg.inner_text('.sheet-body')).split('Google Таблица и Диск')[1][:260].replace('\n', ' | ')
