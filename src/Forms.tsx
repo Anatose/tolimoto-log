@@ -4,7 +4,7 @@ import { LANGS, PRESETS, defaultCurrency, locale, presetName, useT, type K } fro
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
-import { backToStorageChoice, guideUrl } from './Onboarding'
+import { backToStorageChoice, guideUrl, platform } from './Onboarding'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -652,7 +652,7 @@ export function SettingsSheet() {
       <input ref={fuellyFile} type="file" multiple accept=".csv,text/csv,text/plain" hidden onChange={(e) => onFuelly(e.target.files)} />
       {msg && <div className="notice" role="status">{msg}</div>}
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
-      {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
+      {!standalone && platform() !== 'desktop' && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <a className="btn link" href={guideUrl(db.settings.lang ?? 'ru')} target="_blank" rel="noopener">{t('help')}</a>
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
       <div className="notice desk"><span><b>{t('keysTitle')}</b><br />{t('keysHelp')}</span></div>
