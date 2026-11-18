@@ -197,6 +197,7 @@ export const lv: Pack = {
     backupSaved: 'Rezerves kopija saglabāta.',
     help: 'Kā lietot',
     contactDev: 'Rakstīt izstrādātājam',
+    thanksDev: 'Pateikties — litrs degvielas Ko-fi',
     version: 'Versija',
     googleLater: 'Pieteikšanās ar Google un sinhronizācija ar tabulu būs nākamajā versijā.',
     move: 'Ieraksta transportlīdzeklis',

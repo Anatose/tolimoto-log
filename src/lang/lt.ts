@@ -197,6 +197,7 @@ export const lt: Pack = {
     backupSaved: 'Atsarginė kopija išsaugota.',
     help: 'Kaip naudotis',
     contactDev: 'Parašyti kūrėjui',
+    thanksDev: 'Padėkoti — litras kuro per Ko-fi',
     version: 'Versija',
     googleLater: 'Prisijungimas su Google ir sinchronizacija su lentele bus kitoje versijoje.',
     move: 'Įrašo transporto priemonė',

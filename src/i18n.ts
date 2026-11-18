@@ -234,6 +234,7 @@ export const S = {
   backupSaved: ['Резервная копия сохранена.', 'Backup saved.'],
   help: ['Как пользоваться', 'How to use'],
   contactDev: ['Написать разработчику', 'Contact the developer'],
+  thanksDev: ['Поблагодарить — литр топлива на Ko-fi', 'Say thanks — a litre of fuel on Ko-fi'],
   version: ['Версия', 'Version'],
   googleLater: [
     'Вход через Google и синхронизация с таблицей появятся в следующей версии.',

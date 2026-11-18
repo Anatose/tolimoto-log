@@ -126,6 +126,7 @@ export default function App() {
           <button type="button" className="fab" aria-label={t('add')} aria-keyshortcuts="N" onClick={() => setStack([{ k: 'add' }])}><IconPlus /><span className="desk">{t('add')}</span><kbd className="desk">N</kbd></button>
           {tabBtn('sched', t('tabSched'), '3')}
           {tabBtn('stats', t('tabStats'), '4')}
+          <a className="tab nav-thanks desk" href="https://ko-fi.com/tolimoto" target="_blank" rel="noopener">⛽ {t('thanksDev')}</a>
           <button type="button" className="tab nav-settings desk" onClick={() => setStack([{ k: 'settings' }])}><IconGear /> {t('settings')}</button>
         </nav>
         {modal && <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} />}

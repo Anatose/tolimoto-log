@@ -197,6 +197,7 @@ export const et: Pack = {
     backupSaved: 'Varukoopia salvestatud.',
     help: 'Kuidas kasutada',
     contactDev: 'Kirjuta arendajale',
+    thanksDev: 'Täna — liiter kütust Ko-fis',
     version: 'Versioon',
     googleLater: 'Google’iga sisselogimine ja tabeli sünkroonimine tulevad järgmises versioonis.',
     move: 'Kirje sõiduk',
