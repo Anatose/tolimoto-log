@@ -6,6 +6,7 @@ import { fromSheet, merge3, toIso, toSheet, type Data } from '../src/sync'
 import { buildSummary, linkCell, localize } from '../src/sheetLook'
 import { CAT_L, HEAD, KIND_L, TYPE_L } from '../src/sheetLang'
 import type { DB, FuelEntry } from '../src/store'
+import { PRESETS, presetName, repairScheduleTypes, retypeSchedule } from '../src/i18n'
 
 let failed = 0
 const eq = (name: string, got: unknown, want: unknown) => {
@@ -308,6 +309,52 @@ void (null as unknown as DBT)
   eq('without the device list it would come back', merge3(plain, del, edited).data.vehicles.map((v) => v.id), ['v1', 'v2'])
   // backup without the new fields restores as not archived
   eq('old backup', normalize(JSON.parse(JSON.stringify({ vehicles: [{ id: 'q', name: 'q', type: 'car', color: '', currency: '€', odometer: 0 }] }))).vehicles[0].archived, null)
+}
+
+/* ---------- schedule presets follow the vehicle type ---------- */
+{
+  type SI = DB['schedule'][number]
+  const typical = (vid: string, type: 'moto' | 'car', lang: 'ru' | 'pl'): SI[] =>
+    PRESETS[type].map((p, i) => ({ id: `${vid}-${i}`, vehicleId: vid, name: presetName(p, lang), tag: p.tag, intervalKm: p.km, intervalDays: p.days, hint: '' }))
+  const tags = (l: SI[], vid: string) => l.filter((x) => x.vehicleId === vid).map((x) => x.tag).sort()
+  const carTags = PRESETS.car.map((p) => p.tag).sort()
+  const bike = typical('m', 'moto', 'ru')
+  // a car first saved as a motorcycle: it gets the car list, the bike next to it keeps its own
+  let all = [...bike, ...typical('c', 'moto', 'pl')]
+  let out = retypeSchedule(all, 'c', 'moto', 'car', new Set(), 'pl')
+  eq('retype moto->car: car list', tags(out, 'c'), carTags)
+  eq('retype: other vehicle untouched', out.filter((x) => x.vehicleId === 'm'), bike)
+  eq('retype: car intervals', out.find((x) => x.vehicleId === 'c' && x.tag === 'engineoil')?.intervalKm, 15000)
+  eq('retype: new items in app language', out.find((x) => x.vehicleId === 'c' && x.tag === 'cabinfilter')?.name, presetName(PRESETS.car.find((p) => p.tag === 'cabinfilter')!, 'pl'))
+  // what the owner changed or used stays
+  all = typical('c', 'moto', 'ru').map((x) => (x.tag === 'forkoil' ? { ...x, intervalKm: 20000 } : x.tag === 'engineoil' ? { ...x, hint: 'Motul' } : x))
+  out = retypeSchedule(all, 'c', 'moto', 'car', new Set(['chain']), 'ru')
+  eq('retype keeps edited and used items', tags(out, 'c'), [...carTags, 'chain', 'forkoil'].sort())
+  eq('retype keeps edited intervals', out.find((x) => x.tag === 'engineoil')?.intervalKm, 10000)
+  // an empty list (owner chose "empty") gets nothing added
+  eq('retype: empty list stays empty', retypeSchedule([], 'c', 'moto', 'car', new Set(), 'ru'), [])
+  eq('retype: same type is a no-op', retypeSchedule(bike, 'm', 'moto', 'moto', new Set(), 'ru'), bike)
+  // one-time repair of data made before the fix (the Subaru with fork oil and chain)
+  const d = { vehicles: [{ id: 'm', type: 'moto' as const }, { id: 'c', type: 'car' as const }], schedule: [...bike, ...typical('c', 'moto', 'pl')], service: [] as { vehicleId: string; tags: string[] }[] }
+  eq('repair finds the car', repairScheduleTypes(d, 'pl'), true)
+  eq('repair: car has car items', tags(d.schedule, 'c'), carTags)
+  eq('repair: bike keeps chain and fork oil', tags(d.schedule, 'm'), PRESETS.moto.map((p) => p.tag).sort())
+  eq('repair: second run changes nothing', repairScheduleTypes(d, 'pl'), false)
+  // a car whose owner added "chain" by hand with own settings is left alone
+  const own = { vehicles: [{ id: 'c', type: 'car' as const }], schedule: [...typical('c', 'car', 'ru'), { id: 'x', vehicleId: 'c', name: 'Цепь ГРМ', tag: 'chain', intervalKm: 120000, intervalDays: null, hint: '' }], service: [] }
+  eq('repair leaves own items', repairScheduleTypes(own, 'ru'), false)
+  // the Google sheet keeps each vehicle's schedule apart (two vehicles, both kinds of items)
+  const data: Data = {
+    vehicles: [
+      { id: 'm', name: 'Honda NC750X', type: 'moto', color: '#f80', currency: '€', odometer: 1, ownership: null, archived: null },
+      { id: 'c', name: 'Subaru Outback', type: 'car', color: '#48f', currency: '€', odometer: 2, ownership: null, archived: null },
+    ],
+    service: [], fuel: [], expenses: [],
+    schedule: [...bike, ...typical('c', 'car', 'pl')],
+  }
+  const back = fromSheet(toSheet(data)).data
+  eq('sheet round trip: car schedule', tags(back.schedule, 'c'), carTags)
+  eq('sheet round trip: bike schedule', tags(back.schedule, 'm'), PRESETS.moto.map((p) => p.tag).sort())
 }
 
 process.exit(failed ? 1 : 0)

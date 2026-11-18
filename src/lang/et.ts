@@ -331,6 +331,8 @@ export const et: Pack = {
     xCreate: "Loo PDF",
     xPrintHint: "Valmib PDF-fail: salvesta see failidesse või saada kohe ostjale.",
     xSave: "Salvesta või saada PDF",
+    backAgain: "Väljumiseks vajuta uuesti „Tagasi”",
+    backCloseApp: "Väljumiseks sulge rakendus avatud rakenduste loendist",
     xMaking: "Koostan PDF-i…",
     xFailed: "PDF-i ei õnnestunud koostada. Proovi uuesti; ilma võrguta peab rakendus olema pärast uuendust korra võrgus avatud.",
     xLoading: "Laadin fotosid…",

@@ -331,6 +331,8 @@ export const lt: Pack = {
     xCreate: "Sukurti PDF",
     xPrintHint: "Bus sukurtas PDF failas: įrašykite jį į Failus arba iškart išsiųskite pirkėjui.",
     xSave: "Įrašyti arba išsiųsti PDF",
+    backAgain: "Paspauskite „Atgal“ dar kartą, kad išeitumėte",
+    backCloseApp: "Norėdami išeiti, uždarykite programėlę iš atidarytų programų sąrašo",
     xMaking: "Kuriamas PDF…",
     xFailed: "Nepavyko sukurti PDF. Bandykite dar kartą; be ryšio programėlė po atnaujinimo turi būti bent kartą atidaryta prisijungus.",
     xLoading: "Įkeliamos nuotraukos…",

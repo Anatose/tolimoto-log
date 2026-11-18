@@ -1,6 +1,7 @@
 import { strToU8, zipSync } from 'fflate'
 import { getDB, normalize, update, type DB } from './store'
 import { forgetDeleted } from './sync'
+import { repairScheduleTypes } from './i18n'
 
 const cell = (v: string | number | boolean | null | undefined): string => {
   if (v == null) return ''
@@ -105,6 +106,8 @@ export function importJson(text: string): number {
     merge(d.expenses, inc.expenses)
     merge(d.schedule, inc.schedule)
     if (!d.settings.activeVehicleId && d.vehicles[0]) d.settings.activeVehicleId = d.vehicles[0].id
+    // an old backup may carry motorcycle items in a car's schedule (made before the fix)
+    repairScheduleTypes(d, d.settings.lang ?? 'en')
   })
   // a vehicle deleted here and now restored from a backup must not be dropped by the next sync
   void forgetDeleted(inc.vehicles.map((v) => v.id))

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { liveVehicles, update, useDB, useLoaded } from './store'
 import { setUiBusy } from './sync'
-import { relabelPresets, useT } from './i18n'
+import { relabelPresets, repairScheduleTypes, useT } from './i18n'
 import { IconGear, IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
 import { DataSafety, InstallIntro, Tour, isStandalone } from './Onboarding'
+import { installBack, type ExitHint } from './backNav'
 import { ArchiveScreen, Compare, CostDetail, OwnershipForm, SoldChoice, VehicleDelete, VehicleView } from './Owner'
 import { HistoryExport } from './Export'
 import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
@@ -40,8 +41,20 @@ export default function App() {
   const loaded = useLoaded()
   const db = useDB()
   const { t } = useT()
-  const [tab, setTab] = useState<Tab>('home')
+  const [tab, setTabRaw] = useState<Tab>('home')
   const [stack, setStack] = useState<NonNullable<Modal>[]>([])
+  const [hint, setHint] = useState<ExitHint | null>(null)
+  // tabs visited since the main tab, for the system Back button
+  const trail = useRef<Tab[]>([])
+  const tabNow = useRef(tab)
+  tabNow.current = tab
+  const setTab = (k: Tab) => {
+    const cur = tabNow.current
+    if (k === cur) return
+    if (k === 'home') trail.current = []
+    else trail.current = [...trail.current.filter((x) => x !== k), cur].slice(-8)
+    setTabRaw(k)
+  }
   const modal = stack.length ? stack[stack.length - 1] : null
   useEffect(() => setUiBusy(stack.length > 0), [stack.length])
   // computer keyboard: Esc closes, Ctrl/⌘+Enter saves, letters open forms, 1–4 switch tabs, / searches the log
@@ -77,6 +90,28 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  // system Back (Android, browser): close the top window, else the previous tab, else leave the app
+  const back = useRef<() => boolean>(() => false)
+  back.current = () => {
+    const { stack: st, ready } = keyState.current
+    if (st.length) { setStack((s) => s.slice(0, -1)); return true }
+    if (ready && tabNow.current !== 'home') {
+      let prev = trail.current.pop()
+      while (prev && prev === tabNow.current) prev = trail.current.pop()
+      if (!prev || prev === 'home') trail.current = []
+      setTabRaw(prev ?? 'home')
+      return true
+    }
+    return false
+  }
+  useEffect(() => installBack(() => back.current(), setHint, isStandalone()), [])
+  useEffect(() => {
+    if (!hint) return
+    const timer = window.setTimeout(() => setHint(null), hint === 'again' ? 2500 : 5000)
+    return () => window.clearTimeout(timer)
+  }, [hint])
+  const toast = hint && <div className="toast" role="status">{t(hint === 'again' ? 'backAgain' : 'backCloseApp')}</div>
+
   const started = useRef(false)
   const nav = useMemo(() => ({
     open: (m: Modal) => setStack((s) => (m ? [...s.slice(0, -1), m] : s.slice(0, -1))),
@@ -105,6 +140,13 @@ export default function App() {
     if (relabelPresets(db.schedule.map((x) => ({ ...x })), lang)) update((d) => { relabelPresets(d.schedule, lang) })
   }, [loaded, db.settings.lang, db.schedule])
 
+  // one-time repair: motorcycle preset items (fork oil, chain) left in a car's schedule, or the reverse
+  useEffect(() => {
+    const lang = db.settings.lang
+    if (!loaded || !lang || db.settings.schedTypesFixed) return
+    update((d) => { repairScheduleTypes(d, lang); d.settings.schedTypesFixed = true })
+  }, [loaded, db.settings.lang, db.settings.schedTypesFixed])
+
   useEffect(() => {
     if (!loaded || started.current) return
     started.current = true
@@ -112,12 +154,12 @@ export default function App() {
   }, [loaded, db.settings.startOnFuel, db.vehicles.length])
 
   if (!loaded) return <div className="center-screen"><h1>Tolimoto Log</h1></div>
-  if (!db.settings.lang) return <LangPick />
-  if (!db.settings.installSeen && !isStandalone()) return <InstallIntro />
-  if (!db.settings.onboarded) return <Tour />
+  if (!db.settings.lang) return <>{toast}<LangPick /></>
+  if (!db.settings.installSeen && !isStandalone()) return <>{toast}<InstallIntro /></>
+  if (!db.settings.onboarded) return <>{toast}<Tour /></>
   // no vehicle in the garage (none yet, or all archived): the first-vehicle screen; the archive opens on top of it
   if (!liveVehicles(db).length)
-    return (<NavCtx.Provider value={nav}>{modal ? <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} /> : <VehicleForm first />}</NavCtx.Provider>)
+    return (<NavCtx.Provider value={nav}>{toast}{modal ? <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} /> : <VehicleForm first />}</NavCtx.Provider>)
 
   const tabBtn = (k: Tab, label: string, key: string) => (
     <button type="button" className={'tab' + (tab === k ? ' on' : '')} aria-current={tab === k ? 'page' : undefined} aria-keyshortcuts={key} onClick={() => setTab(k)}>{label}<kbd className="desk">{key}</kbd></button>
@@ -142,6 +184,7 @@ export default function App() {
           <button type="button" className="tab nav-settings desk" onClick={() => setStack([{ k: 'settings' }])}><IconGear /> {t('settings')}</button>
         </nav>
         {modal && <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} />}
+        {toast}
       </div>
     </NavCtx.Provider>
   )

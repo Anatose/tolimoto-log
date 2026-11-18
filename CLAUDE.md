@@ -8,12 +8,12 @@
 
     npm install
     npm run dev        # локальный сервер
-    npm test           # расчёты: tsx scripts/test-calc.ts (сейчас 87 ok)
+    npm test           # расчёты: tsx scripts/test-calc.ts (сейчас 102 ok)
     npm run build      # tsc --noEmit + vite build в dist/
 
 Сквозные тесты (Playwright для Python): собрать с `VITE_GOOGLE_CLIENT_ID=test`,
 отдать dist/ на порту 4174, затем `python3 e2e/run_onboarding.py`, `run_google.py`,
-`run_renew.py`, `run_ownership.py` (полная стоимость, PDF), `run_archive.py` (архив, удаление). Google в них подменён `e2e/google_mock.py`.
+`run_renew.py`, `run_ownership.py` (полная стоимость, PDF), `run_archive.py` (архив, удаление), `run_back.py` (системная «Назад», регламент автомобиля). Google в них подменён `e2e/google_mock.py`.
 Кнопки искать как `button:has-text("…")`, а не `text=…` (совпадает с текстом абзацев).
 
 Публикация: каждый push в `main` → `.github/workflows/deploy.yml` (тесты, сборка, Pages).
@@ -46,8 +46,14 @@
   балтийскими и польскими буквами; стрелок и ≈ в нём нет). Шрифты в precache (vite.config.ts), чтобы
   работало без сети; html2canvas, dompurify, canvg заменены пустышкой `src/jspdfStub.ts`. Фото чеков
   скачиваются с Диска (drive.file), если есть вход и сеть, и ужимаются до 1600 px JPEG.
+- `src/backNav.ts` — системная «Назад» (Android, браузер): две свои записи в истории (base/top), Back
+  закрывает верхнее окно, потом предыдущая вкладка, потом «Гараж»; с «Гаража» — выход (в установленном
+  приложении по второму нажатию). После входа в Google с выбором аккаунта страницы Google остаются в истории
+  позади приложения — тогда не выходим, а подсказываем закрыть приложение. Вход — `location.replace`.
+- Регламент по типу: `PRESETS.moto` / `PRESETS.car`; при смене типа транспорта нетронутые пункты-шаблоны
+  переходят на новый тип (`retypeSchedule`), однократный ремонт старых данных — `repairScheduleTypes`.
 - `src/Forms.tsx` — настройки; там же строка версии. При релизе менять версию и в
-  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.7.1).
+  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.7.2).
 
 ## Правила
 

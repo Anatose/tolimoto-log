@@ -1,4 +1,5 @@
 import { GOOGLE_CLIENT_ID, GOOGLE_SCOPES } from './config'
+import { markGoogleBehind } from './backNav'
 
 /*
  * Sign-in by redirect (OAuth 2.0 implicit flow for browser apps). A redirect, not a popup,
@@ -52,7 +53,8 @@ export function signIn(opts: { email?: string; silent?: boolean; auto?: boolean 
   })
   if (opts.email) q.set('login_hint', opts.email)
   if (opts.silent || opts.auto) q.set('prompt', 'none')
-  location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + q.toString())
+  // replace, not a new entry: the app's own entries stay behind the sign-in page only once
+  location.replace('https://accounts.google.com/o/oauth2/v2/auth?' + q.toString())
 }
 
 export type AuthReturn = { kind: 'none' } | { kind: 'ok' } | { kind: 'error'; error: string; auto?: boolean }
@@ -71,6 +73,8 @@ export function handleAuthReturn(): AuthReturn {
     /* no storage */
   }
   if (!saved || p.get('state') !== saved.state) return { kind: 'error', error: 'state' }
+  // Google's own pages (account chooser, consent) are now behind the app in the history
+  if (!saved.silent) markGoogleBehind()
   const err = p.get('error')
   if (err) {
     // An automatic attempt never turns into a screen the user did not ask for.

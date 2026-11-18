@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { activeId, liveVehicles, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
-import { LANGS, PRESETS, defaultCurrency, locale, presetName, useT, type K } from './i18n'
+import { LANGS, PRESETS, defaultCurrency, locale, presetName, retypeSchedule, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
 import { ArchiveLink } from './Screens'
 import { archiveVehicle, restoreVehicle } from './Owner'
@@ -8,7 +8,7 @@ import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet,
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { backToStorageChoice, guideUrl, platform } from './Onboarding'
 
-const APP_VERSION = '0.7.1'
+const APP_VERSION = '0.7.2'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -55,8 +55,12 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
       // purchase data and the archive mark are edited on their own screens and kept here
       const rec = { ownership: ed?.ownership ?? null, archived: ed?.archived ?? null, id: vid, name: name.trim(), type, color, currency: currency.trim() || defaultCurrency(lang), odometer: parseNum(odo) ?? 0 }
       const i = d.vehicles.findIndex((v) => v.id === vid)
-      if (i >= 0) d.vehicles[i] = rec
-      else {
+      if (i >= 0) {
+        d.vehicles[i] = rec
+        // a car first saved as a motorcycle (or the reverse): its untouched preset items follow the new type
+        if (ed && ed.type !== type)
+          d.schedule = retypeSchedule(d.schedule, vid, ed.type, type, new Set(d.service.filter((s) => s.vehicleId === vid).flatMap((s) => s.tags)), lang)
+      } else {
         d.vehicles.push(rec)
         d.settings.activeVehicleId = vid
         if (preset === 'typical')

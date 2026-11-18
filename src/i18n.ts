@@ -1,4 +1,4 @@
-import { useDB, type Lang, type VType } from './store'
+import { uid, useDB, type Lang, type ScheduleItem, type VType } from './store'
 import { uk } from './lang/uk'
 import { et } from './lang/et'
 import { lv } from './lang/lv'
@@ -374,6 +374,8 @@ export const S = {
   xCreate: ["Создать PDF", "Create PDF"],
   xPrintHint: ["Получится файл PDF: сохраните его в «Файлы» или сразу отправьте покупателю.", "You get a PDF file: save it to Files or send it to the buyer straight away."],
   xSave: ["Сохранить или отправить PDF", "Save or send the PDF"],
+  backAgain: ["Нажмите «Назад» ещё раз, чтобы выйти", "Press Back again to exit"],
+  backCloseApp: ["Чтобы выйти, закройте приложение из списка открытых", "To exit, close the app from your recent apps"],
   xMaking: ["Создаю PDF…", "Making the PDF…"],
   xFailed: ["Не удалось создать PDF. Попробуйте ещё раз; без сети нужно хотя бы раз открыть приложение онлайн после обновления.", "Could not make the PDF. Try again; offline, the app must have been opened online once after the update."],
   xLoading: ["Загружаю фото…", "Loading photos…"],
@@ -463,6 +465,55 @@ for (const p of [...PRESETS.moto, ...PRESETS.car]) {
  * in `lang`, so "Масло двигателя" reads "Olej silnikowy" in Polish. Items the owner renamed are left alone.
  * Mutates the items; returns true if anything changed.
  */
+/** The item is still exactly as the preset of `type` made it: a preset name, the same intervals, no hint. */
+function untouched(it: ScheduleItem, type: VType): boolean {
+  const p = PRESETS[type].find((x) => x.tag === it.tag)
+  return !!p && !!PRESET_NAMES[it.tag]?.has(it.name.trim().toLowerCase()) && it.intervalKm === p.km && it.intervalDays === p.days && !it.hint.trim()
+}
+
+/**
+ * The schedule of vehicle `vid` after its type changed from `from` to `to` (a car first saved as a motorcycle).
+ * Only items still exactly as the old type's preset made them change: shared ones (oil, brake fluid…) take the
+ * new type's intervals, the old type's own ones (fork oil, chain…) go unless a record of this vehicle uses
+ * their tag. If the vehicle was set up from the typical list, the new type's missing items are added.
+ * Items the owner made or changed are never touched. Returns the whole new list (all vehicles).
+ */
+export function retypeSchedule(all: ScheduleItem[], vid: string, from: VType, to: VType, usedTags: Set<string>, lang: Lang): ScheduleItem[] {
+  if (from === to) return all
+  const mine = all.filter((x) => x.vehicleId === vid)
+  const fromPresets = mine.some((x) => untouched(x, from))
+  const out: ScheduleItem[] = []
+  for (const it of all) {
+    if (it.vehicleId !== vid || !untouched(it, from)) { out.push(it); continue }
+    const q = PRESETS[to].find((x) => x.tag === it.tag)
+    if (q) out.push({ ...it, intervalKm: q.km, intervalDays: q.days })
+    else if (usedTags.has(it.tag)) out.push(it)
+  }
+  if (fromPresets)
+    for (const q of PRESETS[to])
+      if (!mine.some((x) => x.tag === q.tag))
+        out.push({ id: uid(), vehicleId: vid, name: presetName(q, lang), tag: q.tag, intervalKm: q.km, intervalDays: q.days, hint: '' })
+  return out
+}
+
+/**
+ * One-time repair of schedules made before the fix: a vehicle whose list still has the other type's own
+ * preset items untouched (a car with "Fork oil" or "Chain and sprockets") is retyped as above.
+ */
+export function repairScheduleTypes(d: { vehicles: { id: string; type: VType }[]; schedule: ScheduleItem[]; service: { vehicleId: string; tags: string[] }[] }, lang: Lang): boolean {
+  let changed = false
+  for (const v of d.vehicles) {
+    const other: VType = v.type === 'moto' ? 'car' : 'moto'
+    const own = new Set(PRESETS[v.type].map((x) => x.tag))
+    const wrong = d.schedule.some((x) => x.vehicleId === v.id && !own.has(x.tag) && untouched(x, other))
+    if (!wrong) continue
+    const used = new Set(d.service.filter((s) => s.vehicleId === v.id).flatMap((s) => s.tags))
+    d.schedule = retypeSchedule(d.schedule, v.id, other, v.type, used, lang)
+    changed = true
+  }
+  return changed
+}
+
 export function relabelPresets(items: { tag: string; name: string }[], lang: Lang): boolean {
   let changed = false
   for (const it of items) {

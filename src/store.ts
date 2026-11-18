@@ -96,6 +96,8 @@ export interface Settings {
   valueSnooze: string | null
   /** Google connection of this device; not part of the synced data. */
   google: GoogleLink | null
+  /** The one-time repair of motorcycle items in car schedules (and the reverse) ran on this device. */
+  schedTypesFixed: boolean
 }
 export interface GoogleLink {
   email: string
@@ -121,7 +123,7 @@ export const emptyDB = (): DB => ({
   fuel: [],
   expenses: [],
   schedule: [],
-  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, installSeen: false, onboarded: false, localAck: false, lastBackup: null, backupSnooze: null, valueSnooze: null, google: null },
+  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, installSeen: false, onboarded: false, localAck: false, lastBackup: null, backupSnooze: null, valueSnooze: null, google: null, schedTypesFixed: false },
 })
 
 export const uid = (): string =>

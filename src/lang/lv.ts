@@ -331,6 +331,8 @@ export const lv: Pack = {
     xCreate: "Izveidot PDF",
     xPrintHint: "Tiks izveidots PDF fails: saglabājiet to failos vai uzreiz nosūtiet pircējam.",
     xSave: "Saglabāt vai nosūtīt PDF",
+    backAgain: "Nospiediet “Atpakaļ” vēlreiz, lai izietu",
+    backCloseApp: "Lai izietu, aizveriet lietotni no atvērto lietotņu saraksta",
     xMaking: "Veidoju PDF…",
     xFailed: "Neizdevās izveidot PDF. Mēģiniet vēlreiz; bez tīkla lietotnei pēc atjauninājuma vismaz reizi jābūt atvērtai tiešsaistē.",
     xLoading: "Ielādēju foto…",

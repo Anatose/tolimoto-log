@@ -331,6 +331,8 @@ export const pl: Pack = {
     xCreate: "Utwórz PDF",
     xPrintHint: "Powstanie plik PDF: zachowaj go w Plikach albo od razu wyślij kupującemu.",
     xSave: "Zapisz lub wyślij PDF",
+    backAgain: "Naciśnij „Wstecz” jeszcze raz, aby wyjść",
+    backCloseApp: "Aby wyjść, zamknij aplikację z listy ostatnich aplikacji",
     xMaking: "Tworzę PDF…",
     xFailed: "Nie udało się utworzyć PDF. Spróbuj ponownie; bez sieci aplikację trzeba po aktualizacji choć raz otworzyć online.",
     xLoading: "Wczytuję zdjęcia…",
