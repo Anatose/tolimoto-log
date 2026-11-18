@@ -51,6 +51,7 @@ export const lv: Pack = {
     delete: 'Dzēst',
     confirmDelete: 'Tiešām dzēst?',
     close: 'Aizvērt',
+    back: 'Atpakaļ',
     date: 'Datums',
     odoKm: 'Odometrs, km',
     liters: 'Litri',

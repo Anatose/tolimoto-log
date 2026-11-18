@@ -51,6 +51,7 @@ export const lt: Pack = {
     delete: 'Ištrinti',
     confirmDelete: 'Tikrai ištrinti?',
     close: 'Uždaryti',
+    back: 'Atgal',
     date: 'Data',
     odoKm: 'Odometras, km',
     liters: 'Litrai',

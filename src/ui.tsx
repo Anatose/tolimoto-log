@@ -29,6 +29,7 @@ export const parseNum = (s: string): number | null => {
 }
 
 const svg = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
+export const IconBack = () => (<svg {...svg}><path d="M15 6l-6 6 6 6" /></svg>)
 export const IconX = () => (<svg {...svg}><path d="M6 6l12 12M18 6L6 18" /></svg>)
 export const IconPlus = () => (<svg {...svg} strokeWidth={2.5}><path d="M12 5v14M5 12h14" /></svg>)
 export const IconGear = () => (<svg {...svg}><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>)
@@ -37,13 +38,17 @@ export const IconMoto = () => (<svg {...svg}><circle cx="5.5" cy="16.5" r="3.5" 
 export const IconCar = () => (<svg {...svg}><path d="M3 16v-3l2-5a2 2 0 0 1 2-1h10a2 2 0 0 1 2 1l2 5v3" /><path d="M3 13h18M3 16h18v2H3z" /><circle cx="7" cy="18" r="1.5" /><circle cx="17" cy="18" r="1.5" /></svg>)
 export const IconWrench = () => (<svg {...svg}><path d="M14.5 6a4 4 0 0 0 5.2 5.2L21 12.5l-8.5 8.5a2.1 2.1 0 0 1-3-3L18 9.5" transform="rotate(90 12 12)" /></svg>)
 
-export function Sheet(p: { title: string; color?: string; children: ReactNode; noClose?: boolean }) {
+export function Sheet(p: { title: string; color?: string; children: ReactNode; noClose?: boolean; onBack?: () => void }) {
   const nav = useNav()
   const { t } = useT()
   return (
     <div className="sheet" role="dialog" aria-modal="true" aria-label={p.title}>
       <div className="sheet-head" style={p.color ? { borderTopColor: p.color } : undefined}>
-        {p.noClose ? (
+        {p.onBack ? (
+          <button type="button" className="icon-btn" aria-label={t('back')} onClick={p.onBack}>
+            <IconBack />
+          </button>
+        ) : p.noClose ? (
           <span className="icon-btn ghost" />
         ) : (
           <button type="button" className="icon-btn" aria-label={t('close')} onClick={nav.close}>

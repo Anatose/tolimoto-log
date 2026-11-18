@@ -4,7 +4,7 @@ import { LANGS, PRESETS, defaultCurrency, locale, presetName, useT, type K } fro
 import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
-import { guideUrl } from './Onboarding'
+import { backToStorageChoice, guideUrl } from './Onboarding'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -73,7 +73,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
     nav.close()
   }
   return (
-    <Sheet title={first ? t('firstVehicle') : ed ? t('editVehicle') : t('newVehicle')} color={color} noClose={first}>
+    <Sheet title={first ? t('firstVehicle') : ed ? t('editVehicle') : t('newVehicle')} color={color} noClose={first} onBack={first && !db.vehicles.length ? backToStorageChoice : undefined}>
       <Field label={t('name')}>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Honda NC750X" autoFocus={!ed} />
       </Field>

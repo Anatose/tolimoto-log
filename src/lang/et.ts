@@ -51,6 +51,7 @@ export const et: Pack = {
     delete: 'Kustuta',
     confirmDelete: 'Kas kindlasti kustutada?',
     close: 'Sulge',
+    back: 'Tagasi',
     date: 'Kuupäev',
     odoKm: 'Läbisõit, km',
     liters: 'Liitrid',

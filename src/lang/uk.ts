@@ -51,6 +51,7 @@ export const uk: Pack = {
     delete: 'Видалити',
     confirmDelete: 'Точно видалити?',
     close: 'Закрити',
+    back: 'Назад',
     date: 'Дата',
     odoKm: 'Одометр, км',
     liters: 'Літри',

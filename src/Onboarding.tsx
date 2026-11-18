@@ -99,9 +99,18 @@ const IconChart = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20V4M4 20h16M8 16l4-5 3 3 5-7" /></svg>
 )
 
+/** Set when the user steps back from the first-vehicle screen: open the storage choice, not the tour. */
+let startAtStorage = false
+
+/** From the first-vehicle screen back to "Where should your records live?" — nothing is entered yet. */
+export function backToStorageChoice(): void {
+  startAtStorage = true
+  update((d) => { d.settings.onboarded = false; d.settings.localAck = false })
+}
+
 export function Tour() {
   const { t } = useT()
-  const [i, setI] = useState(0)
+  const [i, setI] = useState(() => { const s = startAtStorage; startAtStorage = false; return s ? 99 : 0 })
   const slides = [
     { icon: <IconFuel />, title: t('tour1T'), text: t('tour1D') },
     { icon: <IconWrench />, title: t('tour2T'), text: t('tour2D') },

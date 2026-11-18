@@ -78,6 +78,7 @@ export const S = {
   delete: ['Удалить', 'Delete'],
   confirmDelete: ['Точно удалить?', 'Really delete?'],
   close: ['Закрыть', 'Close'],
+  back: ['Назад', 'Back'],
   date: ['Дата', 'Date'],
   odoKm: ['Одометр, км', 'Odometer, km'],
   liters: ['Литры', 'Litres'],

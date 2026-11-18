@@ -51,6 +51,7 @@ export const pl: Pack = {
     delete: 'Usuń',
     confirmDelete: 'Na pewno usunąć?',
     close: 'Zamknij',
+    back: 'Wstecz',
     date: 'Data',
     odoKm: 'Przebieg, km',
     liters: 'Litry',
