@@ -196,6 +196,7 @@ export const lv: Pack = {
     brSave: 'Saglabāt kopiju',
     backupSaved: 'Rezerves kopija saglabāta.',
     help: 'Kā lietot',
+    contactDev: 'Rakstīt izstrādātājam',
     version: 'Versija',
     googleLater: 'Pieteikšanās ar Google un sinhronizācija ar tabulu būs nākamajā versijā.',
     move: 'Ieraksta transportlīdzeklis',

@@ -196,6 +196,7 @@ export const et: Pack = {
     brSave: 'Salvesta koopia',
     backupSaved: 'Varukoopia salvestatud.',
     help: 'Kuidas kasutada',
+    contactDev: 'Kirjuta arendajale',
     version: 'Versioon',
     googleLater: 'Google’iga sisselogimine ja tabeli sünkroonimine tulevad järgmises versioonis.',
     move: 'Kirje sõiduk',

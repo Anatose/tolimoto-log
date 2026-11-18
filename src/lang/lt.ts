@@ -196,6 +196,7 @@ export const lt: Pack = {
     brSave: 'Išsaugoti kopiją',
     backupSaved: 'Atsarginė kopija išsaugota.',
     help: 'Kaip naudotis',
+    contactDev: 'Parašyti kūrėjui',
     version: 'Versija',
     googleLater: 'Prisijungimas su Google ir sinchronizacija su lentele bus kitoje versijoje.',
     move: 'Įrašo transporto priemonė',

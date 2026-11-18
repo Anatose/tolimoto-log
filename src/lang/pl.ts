@@ -196,6 +196,7 @@ export const pl: Pack = {
     brSave: 'Zapisz kopię',
     backupSaved: 'Kopia zapasowa zapisana.',
     help: 'Jak korzystać',
+    contactDev: 'Napisz do twórcy',
     version: 'Wersja',
     googleLater: 'Logowanie przez Google i synchronizacja z arkuszem pojawią się w następnej wersji.',
     move: 'Pojazd wpisu',

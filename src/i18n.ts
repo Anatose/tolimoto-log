@@ -233,6 +233,7 @@ export const S = {
   brSave: ['Сохранить копию', 'Save a copy'],
   backupSaved: ['Резервная копия сохранена.', 'Backup saved.'],
   help: ['Как пользоваться', 'How to use'],
+  contactDev: ['Написать разработчику', 'Contact the developer'],
   version: ['Версия', 'Version'],
   googleLater: [
     'Вход через Google и синхронизация с таблицей появятся в следующей версии.',

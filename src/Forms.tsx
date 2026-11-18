@@ -5,6 +5,8 @@ import { currentOdo, fuelSegments } from './calc'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { backToStorageChoice, guideUrl, platform } from './Onboarding'
+
+const APP_VERSION = '0.6.2'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -654,9 +656,10 @@ export function SettingsSheet() {
       {storageMode() === 'memory' && <div className="notice warn">{t('storageTemp')}</div>}
       {!standalone && platform() !== 'desktop' && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <a className="btn link" href={guideUrl(db.settings.lang ?? 'ru')} target="_blank" rel="noopener">{t('help')}</a>
+      <a className="btn link" href={`mailto:contact@tolimoto.com?subject=${encodeURIComponent(`Tolimoto Log ${APP_VERSION}`)}`}>{t('contactDev')} · contact@tolimoto.com</a>
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
       <div className="notice desk"><span><b>{t('keysTitle')}</b><br />{t('keysHelp')}</span></div>
-      <p className="muted">Tolimoto Log · {t('version')} 0.6.1</p>
+      <p className="muted">Tolimoto Log · {t('version')} {APP_VERSION}</p>
     </Sheet>
   )
 }
