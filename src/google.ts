@@ -173,6 +173,25 @@ export async function uploadFile(blob: Blob, name: string, parent: string): Prom
   return f.webViewLink ?? `https://drive.google.com/file/d/${f.id}/view`
 }
 
+/** Drive file id from a link the app saved (…/file/d/<id>/view or …?id=<id>), or null for other links. */
+export function driveId(link: string): string | null {
+  const m = link.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=|x\/)([\w-]{3,})/) ?? link.match(/[?&]id=([\w-]{3,})/)
+  return m ? m[1] : null
+}
+
+/** Downloads one of the app's own files (a receipt photo) with the user's token. */
+export async function downloadFile(id: string): Promise<Blob> {
+  const token = getToken()
+  if (!token) throw new AuthError('signed out')
+  const r = await fetch(`${DRIVE}/${encodeURIComponent(id)}?alt=media`, { headers: { Authorization: 'Bearer ' + token } })
+  if (r.status === 401) {
+    dropToken()
+    throw new AuthError('expired')
+  }
+  if (!r.ok) throw new Error(`Google ${r.status}`)
+  return r.blob()
+}
+
 /* ---------- Sheets ---------- */
 
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets'

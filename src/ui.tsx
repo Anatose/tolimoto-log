@@ -16,11 +16,19 @@ export type Modal =
   | { k: 'safety' }
   | { k: 'spend'; vid: string; year: number | null; bucket: Bucket }
   | { k: 'fuelly'; cars: import('./fuelly').FuellyCar[] }
+  | { k: 'own'; vid: string }
+  | { k: 'cost'; vid: string }
+  | { k: 'sold'; vid: string }
+  | { k: 'archive' }
+  | { k: 'compare' }
+  | { k: 'export'; vid: string }
+  | { k: 'vdelete'; vid: string }
+  | { k: 'vview'; vid: string }
   | null
 
 export type Bucket = 'all' | 'service' | 'accessories' | 'fuel' | 'other'
-/** open replaces the top screen, push opens on top of it, close goes back one level. */
-export const NavCtx = createContext<{ open: (m: Modal) => void; push: (m: Modal) => void; close: () => void }>({ open() {}, push() {}, close() {} })
+/** open replaces the top screen, push opens on top of it, close goes back one level, reset closes all. */
+export const NavCtx = createContext<{ open: (m: Modal) => void; push: (m: Modal) => void; close: () => void; reset: () => void }>({ open() {}, push() {}, close() {}, reset() {} })
 export const useNav = () => useContext(NavCtx)
 
 export const parseNum = (s: string): number | null => {
@@ -102,10 +110,12 @@ export function Toggle(p: { label: string; checked: boolean; onChange: (v: boole
 export function VehicleChips(p: { vid: string; onChange: (v: string) => void }) {
   const db = useDB()
   const { t } = useT()
-  if (db.vehicles.length < 2) return null
+  // archived vehicles are not offered, except the one this record already belongs to
+  const list = db.vehicles.filter((v) => !v.archived || v.id === p.vid)
+  if (list.length < 2) return null
   return (
     <div className="chips vchips" role="group" aria-label={t('move')}>
-      {db.vehicles.map((v) => (
+      {list.map((v) => (
         <button type="button" key={v.id} className={'chip vchip' + (v.id === p.vid ? ' on' : '')} aria-pressed={v.id === p.vid} style={v.id === p.vid ? { borderColor: v.color, boxShadow: `inset 0 0 0 1px ${v.color}` } : undefined} onClick={() => p.onChange(v.id)}>
           <span className="dot" style={{ background: v.color }} />
           {v.name}

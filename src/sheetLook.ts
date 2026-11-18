@@ -10,7 +10,7 @@ import { CAT_L, HEAD, KIND_L, SUM_T, TYPE_L, type Coll } from './sheetLang'
 export type { Coll }
 
 export const TABS: Record<Coll, { title: string; cols: string[] }> = {
-  vehicles: { title: 'Garage', cols: ['name', 'type', 'currency', 'odometer', 'color', 'id'] },
+  vehicles: { title: 'Garage', cols: ['name', 'type', 'currency', 'odometer', 'color', 'purchase_date', 'purchase_odometer', 'purchase_price', 'value_now', 'value_date', 'sold_date', 'sold_price', 'archived', 'id'] },
   service: { title: 'Service log', cols: ['date', 'vehicle', 'odometer', 'category', 'description', 'tags', 'parts', 'labour', 'total', 'notes', 'media', 'id'] },
   fuel: { title: 'Fuel', cols: ['date', 'vehicle', 'odometer', 'liters', 'total', 'price_per_liter', 'full_tank', 'missed_previous', 'station', 'id'] },
   schedule: { title: 'Schedule', cols: ['vehicle', 'name', 'tag', 'interval_km', 'interval_days', 'hint', 'id'] },
@@ -51,7 +51,7 @@ export const isoToSerial = (iso: string): number => {
 type Fmt = 'date' | 'money' | 'int' | 'dec2' | 'dec3'
 interface ColLook { w: number; fmt?: Fmt; wrap?: boolean; check?: boolean; hidden?: boolean; link?: boolean }
 const LOOK: Record<Coll, Record<string, ColLook>> = {
-  vehicles: { name: { w: 180 }, type: { w: 110 }, currency: { w: 80 }, odometer: { w: 150, fmt: 'int' }, color: { w: 90 }, id: { w: 80, hidden: true } },
+  vehicles: { name: { w: 180 }, type: { w: 110 }, currency: { w: 80 }, odometer: { w: 150, fmt: 'int' }, color: { w: 90 }, purchase_date: { w: 110, fmt: 'date', wrap: true }, purchase_odometer: { w: 110, fmt: 'int', wrap: true }, purchase_price: { w: 110, fmt: 'money', wrap: true }, value_now: { w: 120, fmt: 'money', wrap: true }, value_date: { w: 110, fmt: 'date', wrap: true }, sold_date: { w: 110, fmt: 'date', wrap: true }, sold_price: { w: 110, fmt: 'money', wrap: true }, archived: { w: 110, fmt: 'date', wrap: true }, id: { w: 80, hidden: true } },
   service: { date: { w: 95, fmt: 'date' }, vehicle: { w: 130 }, odometer: { w: 90, fmt: 'int' }, category: { w: 105 }, description: { w: 340, wrap: true }, tags: { w: 150, wrap: true }, parts: { w: 85, fmt: 'money' }, labour: { w: 85, fmt: 'money' }, total: { w: 85, fmt: 'money' }, notes: { w: 260, wrap: true }, media: { w: 220, wrap: true, link: true }, id: { w: 80, hidden: true } },
   fuel: { date: { w: 95, fmt: 'date' }, vehicle: { w: 130 }, odometer: { w: 90, fmt: 'int' }, liters: { w: 70, fmt: 'dec2' }, total: { w: 80, fmt: 'money' }, price_per_liter: { w: 90, fmt: 'dec3' }, full_tank: { w: 85, check: true }, missed_previous: { w: 110, check: true, wrap: true }, station: { w: 180, wrap: true }, id: { w: 80, hidden: true } },
   schedule: { vehicle: { w: 130 }, name: { w: 190 }, tag: { w: 120 }, interval_km: { w: 95, fmt: 'int' }, interval_days: { w: 95, fmt: 'int' }, hint: { w: 380, wrap: true }, id: { w: 80, hidden: true } },

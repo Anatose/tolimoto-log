@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from 'fflate'
 import { getDB, normalize, update, type DB } from './store'
+import { forgetDeleted } from './sync'
 
 const cell = (v: string | number | boolean | null | undefined): string => {
   if (v == null) return ''
@@ -16,8 +17,8 @@ export function buildCsvZip(db: DB): Blob {
   const cur = (id: string) => db.vehicles.find((v) => v.id === id)?.currency ?? ''
   const files = {
     'garage.csv': csv(
-      ['name', 'type', 'currency', 'odometer'],
-      db.vehicles.map((v) => [v.name, v.type, v.currency, v.odometer]),
+      ['name', 'type', 'currency', 'odometer', 'purchase_date', 'purchase_odometer', 'purchase_price', 'value_now', 'value_date', 'sold_date', 'sold_price', 'archived'],
+      db.vehicles.map((v) => [v.name, v.type, v.currency, v.odometer, v.ownership?.purchaseDate, v.ownership?.purchaseOdometer, v.ownership?.purchasePrice, v.ownership?.valueNow, v.ownership?.valueDate, v.ownership?.soldDate, v.ownership?.soldPrice, v.archived]),
     ),
     'service-log.csv': csv(
       ['vehicle', 'date', 'odometer', 'category', 'description', 'tags', 'parts', 'labour', 'total', 'currency', 'notes', 'media'],
@@ -103,6 +104,8 @@ export function importJson(text: string): number {
     merge(d.schedule, inc.schedule)
     if (!d.settings.activeVehicleId && d.vehicles[0]) d.settings.activeVehicleId = d.vehicles[0].id
   })
+  // a vehicle deleted here and now restored from a backup must not be dropped by the next sync
+  void forgetDeleted(inc.vehicles.map((v) => v.id))
   return count
 }
 

@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
-import { activeId, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
+import { activeId, liveVehicles, today, uid, update, useDB, storageMode, type Category, type ExpenseKind, type Lang, type VType } from './store'
 import { LANGS, PRESETS, defaultCurrency, locale, presetName, useT, type K } from './i18n'
 import { currentOdo, fuelSegments } from './calc'
+import { ArchiveLink } from './Screens'
+import { archiveVehicle, restoreVehicle } from './Owner'
 import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet, Toggle, VehicleChips, parseNum, useNav } from './ui'
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { backToStorageChoice, guideUrl, platform } from './Onboarding'
 
-const APP_VERSION = '0.6.4'
+const APP_VERSION = '0.7.0'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
@@ -50,7 +52,8 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
   const save = () => {
     const vid = ed?.id ?? uid()
     update((d) => {
-      const rec = { id: vid, name: name.trim(), type, color, currency: currency.trim() || defaultCurrency(lang), odometer: parseNum(odo) ?? 0 }
+      // purchase data and the archive mark are edited on their own screens and kept here
+      const rec = { ownership: ed?.ownership ?? null, archived: ed?.archived ?? null, id: vid, name: name.trim(), type, color, currency: currency.trim() || defaultCurrency(lang), odometer: parseNum(odo) ?? 0 }
       const i = d.vehicles.findIndex((v) => v.id === vid)
       if (i >= 0) d.vehicles[i] = rec
       else {
@@ -60,17 +63,6 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
           for (const p of PRESETS[type])
             d.schedule.push({ id: uid(), vehicleId: vid, name: presetName(p, lang), tag: p.tag, intervalKm: p.km, intervalDays: p.days, hint: '' })
       }
-    })
-    nav.close()
-  }
-  const remove = () => {
-    update((d) => {
-      d.vehicles = d.vehicles.filter((v) => v.id !== id)
-      d.service = d.service.filter((x) => x.vehicleId !== id)
-      d.fuel = d.fuel.filter((x) => x.vehicleId !== id)
-      d.expenses = d.expenses.filter((x) => x.vehicleId !== id)
-      d.schedule = d.schedule.filter((x) => x.vehicleId !== id)
-      if (d.settings.activeVehicleId === id) d.settings.activeVehicleId = d.vehicles[0]?.id ?? null
     })
     nav.close()
   }
@@ -106,8 +98,17 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
           <span className="hint">{t('presetNote')}</span>
         </div>
       )}
+      {ed && (
+        <div className="veh-actions">
+          <button type="button" className="btn" onClick={() => nav.push({ k: ed.ownership ? 'cost' : 'own', vid: ed.id })}>{t('ownTitle')} ›</button>
+          <button type="button" className="btn" onClick={() => nav.push({ k: 'export', vid: ed.id })}>{t('exportPdf')}</button>
+          {ed.archived
+            ? <button type="button" className="btn" onClick={() => { restoreVehicle(ed.id); nav.close() }}>{t('archRestore')}</button>
+            : <button type="button" className="btn" onClick={() => { archiveVehicle(ed.id); nav.reset() }}>{t('toArchive')}</button>}
+        </div>
+      )}
       <div className="spacer" />
-      {ed && db.vehicles.length > 0 && <DeleteBtn onDelete={remove} />}
+      {first && <ArchiveLink />}
       {first && (
         <>
           <button type="button" className="btn link" onClick={() => file.current?.click()}>{t('importJson')}</button>
@@ -118,6 +119,7 @@ export function VehicleForm({ id, first }: { id?: string; first?: boolean }) {
         </>
       )}
       <button type="button" className="btn primary big" disabled={!valid} onClick={save}>{t('save')}</button>
+      {ed && <button type="button" className="btn link danger-link" onClick={() => nav.push({ k: 'vdelete', vid: ed.id })}>{t('delete')}</button>}
     </Sheet>
   )
 }
@@ -179,7 +181,7 @@ export function FuelForm({ id }: { id?: string }) {
     seg = fuelSegments([...others, { id: '__draft', vehicleId: vid, date, odometer: o, liters: l, total: s ?? 0, full, missed, station }]).find((x) => x.id === '__draft') ?? null
 
   const guess = !ed && o != null && o < cur
-    ? db.vehicles.find((x) => { if (x.id === vid) return false; const c = currentOdo(db, x.id); return o >= c && o - c <= 3000 })
+    ? liveVehicles(db).find((x) => { if (x.id === vid) return false; const c = currentOdo(db, x.id); return o >= c && o - c <= 3000 })
     : undefined
 
   const valid = o != null && o > 0 && l != null && l > 0 && s != null && s >= 0
@@ -636,12 +638,14 @@ export function SettingsSheet() {
       </div>
       <Toggle label={t('startOnFuel')} checked={db.settings.startOnFuel} onChange={(v) => update((d) => { d.settings.startOnFuel = v })} />
       <h3>{t('vehicles')}</h3>
-      {db.vehicles.map((v) => (
+      {liveVehicles(db).map((v) => (
         <button type="button" key={v.id} className="card row-btn inline-row" onClick={() => nav.push({ k: 'vehicle', id: v.id })}>
           <span className="dot" style={{ background: v.color }} /> <b>{v.name}</b> <span className="muted">{t(v.type)}</span>
         </button>
       ))}
+      <ArchiveLink />
       <button type="button" className="btn" onClick={() => nav.push({ k: 'vehicle' })}>+ {t('addVehicle')}</button>
+      {db.vehicles.length > 1 && <button type="button" className="btn link" onClick={() => nav.push({ k: 'compare' })}>{t('compare')} ›</button>}
       {googleConfigured() && <GoogleSection />}
       <h3>{t('data')}</h3>
       <button type="button" className="btn" onClick={() => doExport('csv')}>{t('exportCsv')}</button>
@@ -674,7 +678,7 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
   const nav = useNav()
   const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9а-яё]/g, '')
   const match = (c: FuellyCar) =>
-    db.vehicles.find((v) => { const a = norm(v.name); const b = norm(c.name + ' ' + c.model); return a.length > 2 && (b.includes(a) || a.includes(norm(c.name))) })?.id ?? 'new'
+    liveVehicles(db).find((v) => { const a = norm(v.name); const b = norm(c.name + ' ' + c.model); return a.length > 2 && (b.includes(a) || a.includes(norm(c.name))) })?.id ?? 'new'
   const [target, setTarget] = useState<string[]>(() => cars.map(match))
   const [types, setTypes] = useState<VType[]>(() => cars.map(guessType))
   const [result, setResult] = useState<{ added: number; replaced: number; overlaps: FuelOverlap[]; vids: string[] } | null>(null)
@@ -689,7 +693,7 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
         if (vid === 'new') {
           vid = uid()
           const used = new Set(d.vehicles.map((v) => v.color.toLowerCase()))
-          d.vehicles.push({ id: vid, name: c.model || c.name, type: types[i], color: COLORS.find((x) => !used.has(x.toLowerCase())) ?? COLORS[0], currency: defaultCurrency(db.settings.lang), odometer: c.rows[c.rows.length - 1]?.odometer ?? 0 })
+          d.vehicles.push({ ownership: null, archived: null, id: vid, name: c.model || c.name, type: types[i], color: COLORS.find((x) => !used.has(x.toLowerCase())) ?? COLORS[0], currency: defaultCurrency(db.settings.lang), odometer: c.rows[c.rows.length - 1]?.odometer ?? 0 })
         }
         const r = addFuellyRows(d, vid, c)
         added += r.added
@@ -730,7 +734,7 @@ export function FuellyImport({ cars }: { cars: FuellyCar[] }) {
           <label className="field">
             <span className="label">{t('fuellyTo')}</span>
             <select className="input" value={target[i]} onChange={(e) => setTarget((a) => a.map((x, j) => (j === i ? e.target.value : x)))}>
-              {db.vehicles.map((v) => (<option key={v.id} value={v.id}>{v.name}</option>))}
+              {liveVehicles(db).map((v) => (<option key={v.id} value={v.id}>{v.name}</option>))}
               <option value="new">{t('fuellyNew')}: {c.model || c.name}</option>
               <option value="skip">{t('fuellySkip')}</option>
             </select>

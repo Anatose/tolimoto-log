@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getDB, kvGet, kvSet, onDataChange, uid, update, type DB, type Lang } from './store'
+import { getDB, kvGet, kvSet, normOwnership, normVehicle, onDataChange, uid, update, type DB, type Lang } from './store'
 import { AuthError, ensureLayout, getToken, googleConfigured, readRanges, sheetBatchUpdate, sheetInfo, signIn, userEmail, writeRanges, type Cell } from './google'
 import { CAT_READ, COLLS, KIND_READ, SUMMARY, TABS, TYPE_READ, buildSummary, catLabel, dataTabRequests, heading, isoToSerial, keyOfHeading, kindLabel, localize, summarySignature, typeLabel, type Coll, type SummaryInput } from './sheetLook'
 export { TABS }
@@ -25,7 +25,11 @@ export function toSheet(d: Data, lang: Lang = 'en'): Record<Coll, Cell[][]> {
   const head = (c: Coll) => TABS[c].cols.map((k) => heading(c, k, lang))
   const day = isoToSerial
   return {
-    vehicles: [head('vehicles'), ...d.vehicles.map((v) => [v.name, typeLabel(v.type, lang), v.currency, v.odometer, v.color, v.id])],
+    vehicles: [head('vehicles'), ...d.vehicles.map((v) => {
+      const o = v.ownership
+      const dd = (x: string | null | undefined): Cell => (x ? day(x) : '')
+      return [v.name, typeLabel(v.type, lang), v.currency, v.odometer, v.color, dd(o?.purchaseDate), e(o?.purchaseOdometer), e(o?.purchasePrice), e(o?.valueNow), dd(o?.valueDate), dd(o?.soldDate), e(o?.soldPrice), dd(v.archived), v.id]
+    })],
     service: [head('service'), ...byDate(d.service).map((s) => [day(s.date), vname(s.vehicleId), e(s.odometer), catLabel(s.category, lang), s.description, s.tags.map((t) => '#' + t).join(' '), e(s.parts), e(s.labour), s.parts == null && s.labour == null ? '' : r2((s.parts ?? 0) + (s.labour ?? 0)), s.notes, s.media, s.id])],
     fuel: [head('fuel'), ...byDate(d.fuel).map((f) => [day(f.date), vname(f.vehicleId), f.odometer, f.liters, f.total, f.liters ? Math.round((f.total / f.liters) * 1000) / 1000 : '', f.full, f.missed, f.station, f.id])],
     schedule: [head('schedule'), ...[...d.schedule].sort((a, b) => vorder(a.vehicleId) - vorder(b.vehicleId)).map((s) => [vname(s.vehicleId), s.name, '#' + s.tag, e(s.intervalKm), e(s.intervalDays), s.hint, s.id])],
@@ -85,7 +89,8 @@ export function fromSheet(tabs: Record<Coll, Cell[][]>): ReadResult {
   for (const r of rows('vehicles')) {
     const name = str(r.get('name'))
     if (!name) { skipped.push(`Garage ${r.n}`); continue }
-    data.vehicles.push({ id: str(r.get('id')) || uid(), name, type: VT[str(r.get('type')).toLowerCase()] ?? 'car', color: str(r.get('color')) || '#4C9AFF', currency: str(r.get('currency')) || '€', odometer: numOrNull(r.get('odometer')) ?? 0 })
+    const ownership = normOwnership({ purchaseDate: toIso(r.get('purchase_date')), purchaseOdometer: numOrNull(r.get('purchase_odometer')), purchasePrice: numOrNull(r.get('purchase_price')), valueNow: numOrNull(r.get('value_now')), valueDate: toIso(r.get('value_date')), soldDate: toIso(r.get('sold_date')), soldPrice: numOrNull(r.get('sold_price')) })
+    data.vehicles.push({ id: str(r.get('id')) || uid(), name, type: VT[str(r.get('type')).toLowerCase()] ?? 'car', color: str(r.get('color')) || '#4C9AFF', currency: str(r.get('currency')) || '€', odometer: numOrNull(r.get('odometer')) ?? 0, ownership, archived: toIso(r.get('archived')) })
   }
   const vid = (c: Cell | undefined) => {
     const s = str(c).toLowerCase()
@@ -148,8 +153,11 @@ export interface MergeStats {
  * base = what both sides had after the last sync. A record changed on one side takes that side;
  * changed on both, the app wins. Deleted on one side and untouched on the other: deleted.
  */
-export function merge3(base: Data, local: Data, remote: Data): { data: Data; stats: MergeStats } {
+export function merge3(base: Data, local: Data, remote: Data, deleted: string[] = []): { data: Data; stats: MergeStats } {
   const stats: MergeStats = { fromSheet: 0, conflicts: 0 }
+  // vehicles in one form on all sides: a base saved before the newer fields existed is not a "change"
+  const nv = (d: Data): Data => ({ ...d, vehicles: d.vehicles.map(normVehicle) })
+  base = nv(base); local = nv(local); remote = nv(remote)
   const out = {} as Data
   for (const c of COLLS) {
     type R = { id: string }
@@ -185,6 +193,8 @@ export function merge3(base: Data, local: Data, remote: Data): { data: Data; sta
     res.sort((x, y) => (order.get(x.id) ?? 1e9) - (order.get(y.id) ?? 1e9))
     ;(out as Record<Coll, R[]>)[c] = res
   }
+  // a vehicle deleted on this device stays deleted even if its row was edited in the sheet meanwhile
+  if (deleted.length) out.vehicles = out.vehicles.filter((v) => !deleted.includes(v.id))
   // records that point at a vehicle that is gone
   const vids = new Set(out.vehicles.map((v) => v.id))
   out.service = out.service.filter((x) => vids.has(x.vehicleId))
@@ -215,6 +225,19 @@ export const useSync = () => useSyncExternalStore((f) => { subs.add(f); return (
 /* ---------- running a sync ---------- */
 
 const BASE_KEY = 'sync-base'
+const DELETED_KEY = 'deleted-vehicles'
+
+/** Remembers a vehicle deleted on this device until the next sync has written the sheet without it. */
+export async function rememberDeleted(id: string): Promise<void> {
+  const list = (await kvGet<string[]>(DELETED_KEY)) ?? []
+  if (!list.includes(id)) await kvSet(DELETED_KEY, [...list, id])
+}
+/** Drops vehicles from that list: after a sync wrote the sheet, or when a backup brings one back. */
+export async function forgetDeleted(ids: string[]): Promise<void> {
+  const list = (await kvGet<string[]>(DELETED_KEY)) ?? []
+  const rest = list.filter((x) => !ids.includes(x))
+  if (rest.length !== list.length) await kvSet(DELETED_KEY, rest.length ? rest : undefined)
+}
 let running: Promise<void> | null = null
 let again = false
 
@@ -287,7 +310,8 @@ async function runSync(): Promise<void> {
     const remote = fromSheet(tabs)
     const base = (await kvGet<Data>(BASE_KEY)) ?? { vehicles: [], service: [], fuel: [], schedule: [], expenses: [] }
     const local = pick(getDB())
-    const { data, stats } = merge3(base, local, remote.data)
+    const deleted = (await kvGet<string[]>(DELETED_KEY)) ?? []
+    const { data, stats } = merge3(base, local, remote.data, deleted)
     if (canon(data) !== canon(local)) update((d) => Object.assign(d, data))
     const out = toSheet(data, lang)
     // write only when the sheet differs, so a hand edit made meanwhile is not overwritten for nothing
@@ -299,6 +323,7 @@ async function runSync(): Promise<void> {
     }
     await updateSummary(g.sheetId, ids, locale, data, lang)
     await kvSet(BASE_KEY, data)
+    if (deleted.length) await forgetDeleted(deleted)
     const at = new Date().toISOString()
     update((d) => { if (d.settings.google) d.settings.google.lastSync = at })
     setStatus({ s: 'synced', at, fromSheet: stats.fromSheet, skipped: remote.skipped })

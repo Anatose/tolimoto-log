@@ -1,6 +1,7 @@
 import { BackupReminder } from './Onboarding'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { activeId, storageMode, today, update, useDB } from './store'
+import { activeId, liveVehicles, storageMode, today, update, useDB } from './store'
+import { OwnTileLine, ValueReminder } from './Owner'
 import { locale, useT, type K } from './i18n'
 import { avgL100, costPerKm, currentOdo, fuelSegments, schedState, totals, years, type SchedState } from './calc'
 import { Badge, Bar, Chips, DateInput, IconCar, IconFuel, IconGear, IconMoto, Sheet, useNav, type Bucket } from './ui'
@@ -29,29 +30,30 @@ function Carousel() {
   const ref = useRef<HTMLDivElement>(null)
   const timer = useRef<number>()
   const active = activeId(db)
-  const idx = Math.max(0, db.vehicles.findIndex((v) => v.id === active))
+  const vehicles = liveVehicles(db)
+  const idx = Math.max(0, vehicles.findIndex((v) => v.id === active))
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const target = idx * el.clientWidth
     if (Math.abs(el.scrollLeft - target) > 4) el.scrollTo({ left: target })
-  }, [idx, db.vehicles.length])
+  }, [idx, vehicles.length])
   const onScroll = () => {
     window.clearTimeout(timer.current)
     timer.current = window.setTimeout(() => {
       const el = ref.current
       if (!el || !el.clientWidth) return
-      const v = db.vehicles[Math.round(el.scrollLeft / el.clientWidth)]
+      const v = vehicles[Math.round(el.scrollLeft / el.clientWidth)]
       if (v && v.id !== active) update((d) => { d.settings.activeVehicleId = v.id })
     }, 120)
   }
   return (
     <>
       <div className="carousel" ref={ref} onScroll={onScroll}>
-        {db.vehicles.map((v) => (
+        {vehicles.map((v) => (
           <section className="vcard" key={v.id} style={{ borderTopColor: v.color }} aria-label={v.name}>
             <div className="split">
-              <span className="vname"><span style={{ color: v.color }}>{v.type === 'moto' ? <IconMoto /> : <IconCar />}</span> {v.name}</span>
+              <button type="button" className="vname row-btn bare" onClick={() => nav.open({ k: 'vehicle', id: v.id })}><span style={{ color: v.color }}>{v.type === 'moto' ? <IconMoto /> : <IconCar />}</span> {v.name} <span className="muted" aria-hidden="true">›</span></button>
             </div>
             <div className="split end">
               <div>
@@ -66,9 +68,9 @@ function Carousel() {
           <button type="button" className="btn big" onClick={() => nav.open({ k: 'vehicle' })}>+ {t('addVehicle')}</button>
         </section>
       </div>
-      {db.vehicles.length > 1 && (
+      {vehicles.length > 1 && (
         <div className="dots">
-          {db.vehicles.map((v) => (<button type="button" key={v.id} aria-label={v.name} aria-current={v.id === active ? 'true' : undefined} className={v.id === active ? 'on' : ''} style={v.id === active ? { background: v.color } : undefined} onClick={() => update((d) => { d.settings.activeVehicleId = v.id })} />))}
+          {vehicles.map((v) => (<button type="button" key={v.id} aria-label={v.name} aria-current={v.id === active ? 'true' : undefined} className={v.id === active ? 'on' : ''} style={v.id === active ? { background: v.color } : undefined} onClick={() => update((d) => { d.settings.activeVehicleId = v.id })} />))}
           <button type="button" aria-label={t('addVehicle')} onClick={() => ref.current?.scrollTo({ left: ref.current.scrollWidth, behavior: 'smooth' })} />
         </div>
       )}
@@ -128,6 +130,7 @@ export function Home({ goSched }: { goSched: () => void }) {
       <Carousel />
       <button type="button" className="btn primary fuel-btn" onClick={() => nav.open({ k: 'fuel' })}><IconFuel /> {t('fuel')} · {v.name}</button>
       <BackupReminder />
+      <ArchiveLink />
       </div>
       <div className="home-col">
       <div className="split head">
@@ -150,6 +153,16 @@ export function Home({ goSched }: { goSched: () => void }) {
       </div>
     </>
   )
+}
+
+/** "Archive (N) ›", only when something is in the archive. */
+export function ArchiveLink() {
+  const db = useDB()
+  const { t } = useT()
+  const nav = useNav()
+  const count = db.vehicles.filter((v) => v.archived).length
+  if (!count) return null
+  return <button type="button" className="btn link" onClick={() => nav.push({ k: 'archive' })}>{t('archive')} ({count}) ›</button>
 }
 
 /* ---------- journal ---------- */
@@ -249,10 +262,10 @@ function JournalTable({ rows, avg, currency }: { rows: Row[]; avg: number | null
   )
 }
 
-export function Journal() {
+export function Journal({ vid: forVid, embedded }: { vid?: string; embedded?: boolean } = {}) {
   const db = useDB()
   const { t, n, date } = useT()
-  const vid = activeId(db)
+  const vid = forVid ?? activeId(db)
   const v = db.vehicles.find((x) => x.id === vid)
   const [q, setQ] = useState('')
   const [kind, setKind] = useState<'all' | 'service' | 'fuel' | 'expense'>('all')
@@ -270,9 +283,9 @@ export function Journal() {
     .filter((x) => x.amount !== 0)
   return (
     <>
-      <h1>{t('tabJournal')} <small className="muted">· {v.name}</small></h1>
+      {!embedded && <h1>{t('tabJournal')} <small className="muted">· {v.name}</small></h1>}
       <div className="jfilters">
-      <input id="journal-search" className="input jf-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
+      <input id={embedded ? undefined : 'journal-search'} className="input jf-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
       <Chips value={kind} onChange={setKind} options={[{ v: 'all', l: t('all') }, { v: 'service', l: t('fWork') }, { v: 'fuel', l: t('fFuel') }, { v: 'expense', l: t('fExp') }]} />
       <div className="grid2 jf-dates">
         <div className="field"><span className="label">{t('dateFrom')}</span><DateInput label={t('dateFrom')} value={from} max={to || undefined} onChange={setFrom} clearable /></div>
@@ -407,11 +420,11 @@ function LineChart({ points, label, unit, digits }: { points: number[]; label: s
   )
 }
 
-export function Stats() {
+export function Stats({ vid: forVid, embedded }: { vid?: string; embedded?: boolean } = {}) {
   const db = useDB()
   const { t, n } = useT()
   const nav = useNav()
-  const vid = activeId(db)
+  const vid = forVid ?? activeId(db)
   const v = db.vehicles.find((x) => x.id === vid)
   const thisYear = Number(today().slice(0, 4))
   const [year, setYear] = useState<string>(String(thisYear))
@@ -427,7 +440,8 @@ export function Stats() {
   const y = year === 'all' ? null : Number(year)
   return (
     <>
-      <h1>{t('tabStats')} <small className="muted">· {v.name}</small></h1>
+      {!embedded && <h1>{t('tabStats')} <small className="muted">· {v.name}</small></h1>}
+      {!embedded && <ValueReminder />}
       <Chips value={year} onChange={setYear} options={[...ys.map((y) => ({ v: String(y), l: String(y) })), { v: 'all', l: t('all') }]} />
       <div className="cols">
       <div className="card">
@@ -440,7 +454,7 @@ export function Stats() {
         <button type="button" className="row-btn bare total-row" onClick={() => nav.push({ k: 'spend', vid, year: y, bucket: 'all' })}><b>{t('statsTotal')} ›</b><b className="num">{n(tot.total, 2)} {v.currency}</b></button>
       </div>
       <div className="grid2">
-        <div className="card tile"><span className="label">{t('perKm')}</span><b className="num">{perKm != null ? `${n(perKm, 2)} ${v.currency}` : '—'}</b><span className="muted small">{t('perKmNote')}</span></div>
+        <div className="card tile"><span className="label">{t('perKm')}</span><b className="num">{perKm != null ? `${n(perKm, 2)} ${v.currency}` : '—'}</b><span className="muted small">{t('perKmNote')}</span><OwnTileLine vid={vid} /></div>
         <div className="card tile"><span className="label">{t('avgCons')}</span>{avg != null ? <b className="num">{n(avg, 1)} <small>{t('l100')}</small></b> : <span className="small">{t('avgConsEmpty')}</span>}</div>
       </div>
       </div>

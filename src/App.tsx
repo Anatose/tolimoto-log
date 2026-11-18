@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { update, useDB, useLoaded } from './store'
+import { liveVehicles, update, useDB, useLoaded } from './store'
 import { setUiBusy } from './sync'
 import { relabelPresets, useT } from './i18n'
 import { IconGear, IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
 import { DataSafety, InstallIntro, Tour, isStandalone } from './Onboarding'
+import { ArchiveScreen, Compare, CostDetail, OwnershipForm, SoldChoice, VehicleDelete, VehicleView } from './Owner'
+import { HistoryExport } from './Export'
 import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
 
 type Tab = 'home' | 'journal' | 'sched' | 'stats'
@@ -23,6 +25,14 @@ function ModalHost({ m }: { m: NonNullable<Modal> }) {
     case 'safety': return <DataSafety />
     case 'spend': return <SpendList vid={m.vid} year={m.year} bucket={m.bucket} />
     case 'fuelly': return <FuellyImport cars={m.cars} />
+    case 'own': return <OwnershipForm vid={m.vid} />
+    case 'cost': return <CostDetail vid={m.vid} />
+    case 'sold': return <SoldChoice vid={m.vid} />
+    case 'archive': return <ArchiveScreen />
+    case 'compare': return <Compare />
+    case 'export': return <HistoryExport vid={m.vid} />
+    case 'vdelete': return <VehicleDelete vid={m.vid} />
+    case 'vview': return <VehicleView vid={m.vid} />
   }
 }
 
@@ -36,7 +46,7 @@ export default function App() {
   useEffect(() => setUiBusy(stack.length > 0), [stack.length])
   // computer keyboard: Esc closes, Ctrl/⌘+Enter saves, letters open forms, 1–4 switch tabs, / searches the log
   const keyState = useRef({ stack, ready: false })
-  keyState.current = { stack, ready: !!(db.settings.lang && db.settings.onboarded && db.vehicles.length) }
+  keyState.current = { stack, ready: !!(db.settings.lang && db.settings.onboarded && liveVehicles(db).length) }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.isComposing) return
@@ -72,6 +82,7 @@ export default function App() {
     open: (m: Modal) => setStack((s) => (m ? [...s.slice(0, -1), m] : s.slice(0, -1))),
     push: (m: Modal) => setStack((s) => (m ? [...s, m] : s)),
     close: () => setStack((s) => s.slice(0, -1)),
+    reset: () => setStack([]),
   }), [])
 
   useEffect(() => {
@@ -97,15 +108,16 @@ export default function App() {
   useEffect(() => {
     if (!loaded || started.current) return
     started.current = true
-    if (db.settings.startOnFuel && db.vehicles.length) setStack([{ k: 'fuel' }])
+    if (db.settings.startOnFuel && liveVehicles(db).length) setStack([{ k: 'fuel' }])
   }, [loaded, db.settings.startOnFuel, db.vehicles.length])
 
   if (!loaded) return <div className="center-screen"><h1>Tolimoto Log</h1></div>
   if (!db.settings.lang) return <LangPick />
   if (!db.settings.installSeen && !isStandalone()) return <InstallIntro />
   if (!db.settings.onboarded) return <Tour />
-  if (!db.vehicles.length)
-    return (<NavCtx.Provider value={nav}>{modal?.k === 'fuelly' ? <FuellyImport cars={modal.cars} /> : <VehicleForm first />}</NavCtx.Provider>)
+  // no vehicle in the garage (none yet, or all archived): the first-vehicle screen; the archive opens on top of it
+  if (!liveVehicles(db).length)
+    return (<NavCtx.Provider value={nav}>{modal ? <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} /> : <VehicleForm first />}</NavCtx.Provider>)
 
   const tabBtn = (k: Tab, label: string, key: string) => (
     <button type="button" className={'tab' + (tab === k ? ' on' : '')} aria-current={tab === k ? 'page' : undefined} aria-keyshortcuts={key} onClick={() => setTab(k)}>{label}<kbd className="desk">{key}</kbd></button>

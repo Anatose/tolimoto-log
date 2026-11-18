@@ -148,3 +148,98 @@ export function costPerKm(db: DB, vid: string): number | null {
   if (dist <= 0) return null
   return totals(db, vid, null).total / dist
 }
+
+/* ---------- full cost of ownership ---------- */
+
+export type OwnPart = 'loss' | 'fuel' | 'service' | 'fixed' | 'accessories' | 'other'
+export const OWN_PARTS: OwnPart[] = ['loss', 'fuel', 'service', 'fixed', 'accessories', 'other']
+
+export interface OwnCost {
+  /** Purchase date (start of the period) and its end: the sale date or today. */
+  from: string
+  to: string
+  /** Distance since purchase; null when the odometer at purchase is unknown. */
+  dist: number | null
+  months: number
+  /** Purchase price minus the sale price or the current estimate; null when that value is unknown. */
+  loss: number | null
+  /** Money per part over the period; loss is 0 when unknown. */
+  parts: Record<OwnPart, number>
+  /** Recorded spending since purchase (as in totals). */
+  spend: number
+  /** Spending plus loss of value; null when the loss is unknown. */
+  total: number | null
+  perKm: number | null
+  perMonth: number | null
+  /** Per month: loss of value + insurance, inspection and tax (paid whether you ride or not) … */
+  fixedMonth: number | null
+  /** … and everything else (fuel, service, accessories, other). */
+  variableMonth: number | null
+}
+
+const DAYS_PER_MONTH = 365.25 / 12
+
+/** Full cost of ownership of one vehicle; null when no purchase date or price was entered. */
+export function ownershipCost(db: DB, vid: string, todayStr: string): OwnCost | null {
+  const v = db.vehicles.find((x) => x.id === vid)
+  const o = v?.ownership
+  if (!o || !o.purchaseDate || o.purchasePrice == null) return null
+  const from = o.purchaseDate
+  const to = o.status === 'sold' && o.soldDate ? o.soldDate : todayStr
+  const inPeriod = (d: string) => d >= from && d <= to
+  const parts: Record<OwnPart, number> = { loss: 0, fuel: 0, service: 0, fixed: 0, accessories: 0, other: 0 }
+  for (const s of db.service) {
+    if (s.vehicleId !== vid || !inPeriod(s.date)) continue
+    parts[s.category === 'accessories' ? 'accessories' : 'service'] += (s.parts ?? 0) + (s.labour ?? 0)
+  }
+  for (const f of db.fuel) if (f.vehicleId === vid && inPeriod(f.date)) parts.fuel += f.total
+  for (const e of db.expenses) {
+    if (e.vehicleId !== vid || !inPeriod(e.date)) continue
+    if (e.kind === 'fuel') parts.fuel += e.amount
+    else if (e.kind === 'other') parts.other += e.amount
+    else parts.fixed += e.amount
+  }
+  const spend = parts.fuel + parts.service + parts.fixed + parts.accessories + parts.other
+  const end = o.status === 'sold' ? o.soldPrice : o.valueNow
+  const loss = end == null ? null : o.purchasePrice - end
+  parts.loss = loss ?? 0
+  const total = loss == null ? null : spend + loss
+  const dist = o.purchaseOdometer == null ? null : currentOdo(db, vid) - o.purchaseOdometer
+  const months = Math.max(0, daysBetween(from, to)) / DAYS_PER_MONTH
+  const perKm = total != null && dist != null && dist > 0 ? total / dist : null
+  const perMonth = total != null && months >= 1 ? total / months : null
+  const fixedMonth = loss != null && months >= 1 ? (loss + parts.fixed) / months : null
+  const variableMonth = months >= 1 ? (parts.fuel + parts.service + parts.accessories + parts.other) / months : null
+  return { from, to, dist, months, loss, parts, spend, total, perKm, perMonth, fixedMonth, variableMonth }
+}
+
+/** Yearly reminder: a vehicle still owned whose estimate is older than a year (archived ones are left alone). */
+export function valueDue(db: DB, todayStr: string, now = Date.now()): string | null {
+  if (db.settings.valueSnooze && Date.parse(db.settings.valueSnooze) > now) return null
+  for (const v of db.vehicles) {
+    const o = v.ownership
+    if (v.archived || !o || o.status !== 'own' || !o.purchaseDate) continue
+    if (o.valueDate && daysBetween(o.valueDate, todayStr) > 365) return v.id
+  }
+  return null
+}
+
+/** First and last day with any record, and the odometer range; for the archive cards and comparison. */
+export function recordSpan(db: DB, vid: string): { first: string | null; last: string | null; minOdo: number | null; maxOdo: number | null } {
+  let first: string | null = null
+  let last: string | null = null
+  let minOdo: number | null = null
+  let maxOdo: number | null = null
+  const see = (d: string, odo: number | null) => {
+    if (!first || d < first) first = d
+    if (!last || d > last) last = d
+    if (odo != null) {
+      if (minOdo == null || odo < minOdo) minOdo = odo
+      if (maxOdo == null || odo > maxOdo) maxOdo = odo
+    }
+  }
+  for (const s of db.service) if (s.vehicleId === vid) see(s.date, s.odometer)
+  for (const f of db.fuel) if (f.vehicleId === vid) see(f.date, f.odometer)
+  for (const e of db.expenses) if (e.vehicleId === vid) see(e.date, null)
+  return { first, last, minOdo, maxOdo }
+}

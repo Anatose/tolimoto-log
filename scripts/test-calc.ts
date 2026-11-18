@@ -78,7 +78,7 @@ for (const [file, want] of [['fuelly-nc750x.csv', [75, 4.08, 1106.1]], ['fuelly-
 }
 // ---- sheet round trip and three-way merge
 const sd: Data = {
-  vehicles: [{ id: 'v1', name: 'NC750X', type: 'moto', color: '#FF8A3D', currency: '€', odometer: 45800 }],
+  vehicles: [{ id: 'v1', name: 'NC750X', type: 'moto', color: '#FF8A3D', currency: '€', odometer: 45800, ownership: null, archived: null }],
   service: [{ id: 's1', vehicleId: 'v1', date: '2026-09-01', odometer: 37300, category: 'service', description: 'Oil', tags: ['engineoil', 'oilfilter'], parts: 36, labour: null, notes: 'Liqui Moly; "x"', media: 'https://drive.google.com/file/d/a/view' }],
   fuel: [{ id: 'f1', vehicleId: 'v1', date: '2026-11-06', odometer: 45687, liters: 12.14, total: 22.45, full: true, missed: false, station: 'Shell' }],
   schedule: [{ id: 'i1', vehicleId: 'v1', name: 'Oil', tag: 'engineoil', intervalKm: 10000, intervalDays: 365, hint: '' }],
@@ -217,6 +217,97 @@ void (null as unknown as DBT)
   eq('relabel to pl', [relabelPresets(items, 'pl'), items.map((x) => x.name)], [true, ['Olej silnikowy', 'Моя цепь DID', 'Свой узел']])
   eq('relabel back to ru', [relabelPresets(items, 'ru'), items[0].name], [true, 'Масло двигателя'])
   eq('relabel no-op', relabelPresets(items, 'ru'), false)
+}
+
+// full cost of ownership
+{
+  const { ownershipCost, valueDue } = await import('../src/calc')
+  const { normalize, normOwnership, activeId, liveVehicles } = await import('../src/store')
+  const own = (o: object) => normOwnership({ purchaseDate: '2023-03-01', purchaseOdometer: 10000, purchasePrice: 7200, ...o })
+  const base = () => normalize({
+    vehicles: [{ id: 'm', name: 'Moto', type: 'moto', color: '#fff', currency: '€', odometer: 28400, ownership: own({ valueNow: 5400, valueDate: '2026-10-01' }), archived: null }],
+    fuel: [{ id: 'f1', vehicleId: 'm', date: '2024-05-01', odometer: 20000, liters: 900, total: 1656, full: true, missed: false, station: '' }],
+    service: [
+      { id: 's1', vehicleId: 'm', date: '2024-04-01', odometer: 15000, category: 'service', description: 'TO', tags: [], parts: 800, labour: 304, notes: '', media: '' },
+      { id: 's2', vehicleId: 'm', date: '2024-06-01', odometer: null, category: 'accessories', description: 'Bags', tags: [], parts: 368, labour: null, notes: '', media: '' },
+      { id: 's0', vehicleId: 'm', date: '2022-12-01', odometer: 9000, category: 'repair', description: 'before purchase', tags: [], parts: 999, labour: null, notes: '', media: '' },
+    ],
+    expenses: [{ id: 'e1', vehicleId: 'm', date: '2025-01-10', kind: 'insurance', amount: 736, note: '', media: '' }],
+  })
+  const d = base()
+  const c = ownershipCost(d, 'm', '2026-11-01')!
+  eq('own: spend since purchase', c.spend, 3864)
+  eq('own: loss', c.loss, 1800)
+  eq('own: distance', c.dist, 18400)
+  eq('own: per km 0.31', +c.perKm!.toFixed(2), 0.31)
+  eq('own: about 129 a month', Math.round(c.perMonth!), 129)
+  eq('own: fixed ~58, by distance ~71', [Math.round(c.fixedMonth!), Math.round(c.variableMonth!)], [58, 71])
+  eq('own: parts', c.parts, { loss: 1800, fuel: 1656, service: 1104, fixed: 736, accessories: 368, other: 0 })
+  // sold: the sale price replaces the estimate and the period ends on the sale date
+  const ds = base()
+  ds.vehicles[0].ownership = own({ soldDate: '2026-07-01', soldPrice: 5000, valueNow: 5400 })
+  const cs = ownershipCost(ds, 'm', '2026-11-01')!
+  eq('sold: status and cleared estimate', [ds.vehicles[0].ownership!.status, ds.vehicles[0].ownership!.valueNow], ['sold', null])
+  eq('sold: loss from sale price', cs.loss, 2200)
+  eq('sold: period ends at sale', [cs.to, Math.round(cs.months)], ['2026-07-01', 40])
+  // no estimate: no per-km figure with the purchase, nothing divided
+  const dn = base()
+  dn.vehicles[0].ownership = own({})
+  const cn = ownershipCost(dn, 'm', '2026-11-01')!
+  eq('no estimate: dashes', [cn.loss, cn.perKm, cn.perMonth, cn.fixedMonth], [null, null, null, null])
+  // distance 0: no division by zero
+  const dz = base()
+  dz.vehicles[0].ownership = own({ purchaseOdometer: 28400, valueNow: 5400 })
+  eq('distance 0: dash', ownershipCost(dz, 'm', '2026-11-01')!.perKm, null)
+  eq('not set: null', ownershipCost(normalize({ vehicles: [{ id: 'x', name: 'x', type: 'car', color: '', currency: '€', odometer: 0 } as never] }), 'x', '2026-11-01'), null)
+  // yearly reminder
+  eq('value fresh: no reminder', valueDue(d, '2026-11-01'), null)
+  d.vehicles[0].ownership!.valueDate = '2025-10-01'
+  eq('value older than a year: reminder', valueDue(d, '2026-11-01'), 'm')
+  d.settings.valueSnooze = '2026-11-20T00:00:00Z'
+  eq('value reminder snoozed', valueDue(d, '2026-11-01', Date.parse('2026-11-01T00:00:00Z')), null)
+  d.settings.valueSnooze = null
+  d.vehicles[0].archived = '2026-10-01'
+  eq('no value reminder for an archived vehicle', valueDue(d, '2026-11-01'), null)
+  // archive and the active vehicle
+  const g = normalize({ vehicles: [
+    { id: 'a', name: 'A', type: 'moto', color: '', currency: '€', odometer: 0 },
+    { id: 'b', name: 'B', type: 'car', color: '', currency: '€', odometer: 0 },
+  ] as never, settings: { activeVehicleId: 'a' } as never })
+  eq('old data: not archived, no ownership', g.vehicles.map((v) => [v.archived, v.ownership]), [[null, null], [null, null]])
+  g.vehicles[0].archived = '2026-11-01'
+  eq('archived active -> first live one', activeId(g), 'b')
+  g.vehicles[1].archived = '2026-11-01'
+  eq('all archived -> empty garage', [activeId(g), liveVehicles(g).length], [null, 0])
+  g.vehicles[0].archived = null
+  eq('back to the garage', activeId(g), 'a')
+}
+// ownership and archive through the sheet; deletion does not come back from the sheet
+{
+  const { normalize, normVehicle } = await import('../src/store')
+  const v1 = normVehicle({ id: 'v1', name: 'NC', type: 'moto', color: '#fff', currency: '€', odometer: 100, ownership: { purchaseDate: '2023-03-01', purchaseOdometer: 10000, purchasePrice: 7200, status: 'own', valueNow: 5400, valueDate: '2026-10-01', soldDate: null, soldPrice: null }, archived: '2026-11-02' })
+  const v2 = normVehicle({ id: 'v2', name: 'Car', type: 'car', color: '#000', currency: '€', odometer: 5, ownership: null, archived: null })
+  const data: Data = { vehicles: [v1, v2], service: [{ id: 's', vehicleId: 'v2', date: '2026-01-01', odometer: 1, category: 'service', description: 'x', tags: [], parts: 1, labour: null, notes: '', media: '' }], fuel: [], schedule: [], expenses: [] }
+  for (const lang of ['ru', 'et'] as const) {
+    const back = fromSheet(toSheet(data, lang)).data
+    eq('garage round trip ' + lang, back.vehicles, data.vehicles)
+  }
+  // an old sheet without the new columns: everything reads, new fields are empty
+  const old = toSheet(data, 'ru').vehicles.map((r) => [...r.slice(0, 5), r[r.length - 1]])
+  const oldBack = fromSheet({ ...toSheet(data, 'ru'), vehicles: old }).data.vehicles
+  eq('old sheet without columns', oldBack.map((v) => [v.id, v.ownership, v.archived]), [['v1', null, null], ['v2', null, null]])
+  // a base saved by an older version (no new fields) is not a change on either side
+  const legacy = (d: Data): Data => ({ ...d, vehicles: d.vehicles.map(({ ownership: _o, archived: _a, ...x }) => x as never) })
+  const plain: Data = { ...data, vehicles: [{ ...v1, ownership: null, archived: null }, v2] }
+  const del: Data = { ...plain, vehicles: [plain.vehicles[0]], service: [] }
+  eq('delete after upgrade: vehicle and records stay deleted', merge3(legacy(plain), del, plain).data.vehicles.map((v) => v.id), ['v1'])
+  // deleted here while the sheet row was edited by hand: still deleted, and its records too
+  const edited: Data = { ...plain, vehicles: [plain.vehicles[0], { ...v2, odometer: 999 }] }
+  const m = merge3(plain, del, edited, ['v2']).data
+  eq('deleted vehicle edited in sheet stays deleted', [m.vehicles.map((v) => v.id), m.service.length], [['v1'], 0])
+  eq('without the device list it would come back', merge3(plain, del, edited).data.vehicles.map((v) => v.id), ['v1', 'v2'])
+  // backup without the new fields restores as not archived
+  eq('old backup', normalize(JSON.parse(JSON.stringify({ vehicles: [{ id: 'q', name: 'q', type: 'car', color: '', currency: '€', odometer: 0 }] }))).vehicles[0].archived, null)
 }
 
 process.exit(failed ? 1 : 0)

@@ -13,6 +13,24 @@ export interface Vehicle {
   currency: string
   /** Odometer entered by hand; the shown value is the max of this and all records. */
   odometer: number
+  /** Purchase and current value for the full cost of ownership; null = not set (the default). */
+  ownership: Ownership | null
+  /** Date the vehicle was moved to the archive, or null. */
+  archived: string | null
+}
+/**
+ * What the vehicle cost and is worth. Values are only what the owner entered: no automatic estimates.
+ * Sold = soldDate is set; then valueNow/valueDate are cleared, and for one still owned soldDate/soldPrice are.
+ */
+export interface Ownership {
+  purchaseDate: string | null
+  purchaseOdometer: number | null
+  purchasePrice: number | null
+  status: 'own' | 'sold'
+  valueNow: number | null
+  valueDate: string | null
+  soldDate: string | null
+  soldPrice: number | null
 }
 export interface ServiceEntry {
   id: string
@@ -74,6 +92,8 @@ export interface Settings {
   lastBackup: string | null
   /** The backup reminder stays hidden until this time (ISO). */
   backupSnooze: string | null
+  /** The "update the estimated value" reminder stays hidden until this time (ISO). */
+  valueSnooze: string | null
   /** Google connection of this device; not part of the synced data. */
   google: GoogleLink | null
 }
@@ -101,7 +121,7 @@ export const emptyDB = (): DB => ({
   fuel: [],
   expenses: [],
   schedule: [],
-  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, installSeen: false, onboarded: false, localAck: false, lastBackup: null, backupSnooze: null, google: null },
+  settings: { lang: null, theme: 'auto', startOnFuel: false, activeVehicleId: null, installHintDismissed: false, installSeen: false, onboarded: false, localAck: false, lastBackup: null, backupSnooze: null, valueSnooze: null, google: null },
 })
 
 export const uid = (): string =>
@@ -115,10 +135,41 @@ export const today = (): string => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
+/** Vehicles in the garage, without the archived ones. */
+export const liveVehicles = (db: Pick<DB, 'vehicles'>): Vehicle[] => db.vehicles.filter((v) => !v.archived)
+
 export const activeId = (db: DB): string | null => {
   const a = db.settings.activeVehicleId
-  if (a && db.vehicles.some((v) => v.id === a)) return a
-  return db.vehicles[0]?.id ?? null
+  const live = liveVehicles(db)
+  if (a && live.some((v) => v.id === a)) return a
+  return live[0]?.id ?? null
+}
+
+const numOrNull = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null)
+const dateOrNull = (x: unknown): string | null => (typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null)
+
+/** One canonical form of the ownership block, the same whether it came from the app, a backup or the sheet. */
+export function normOwnership(o: Partial<Ownership> | null | undefined): Ownership | null {
+  if (!o || typeof o !== 'object') return null
+  const purchaseDate = dateOrNull(o.purchaseDate)
+  const purchaseOdometer = numOrNull(o.purchaseOdometer)
+  const purchasePrice = numOrNull(o.purchasePrice)
+  const soldDate = dateOrNull(o.soldDate)
+  const sold = soldDate != null
+  const x: Ownership = {
+    purchaseDate, purchaseOdometer, purchasePrice,
+    status: sold ? 'sold' : 'own',
+    valueNow: sold ? null : numOrNull(o.valueNow),
+    valueDate: sold ? null : dateOrNull(o.valueDate),
+    soldDate,
+    soldPrice: sold ? numOrNull(o.soldPrice) : null,
+  }
+  return Object.entries(x).some(([k, v]) => k !== 'status' && v != null) ? x : null
+}
+
+/** A vehicle with every field present: old data without the newer fields gets the defaults. */
+export function normVehicle(v: Vehicle): Vehicle {
+  return { ...v, ownership: normOwnership(v.ownership), archived: dateOrNull(v.archived) }
 }
 
 /* ---------- persistence: one document in IndexedDB, localStorage as fallback ---------- */
@@ -209,7 +260,7 @@ export function normalize(d: Partial<DB>): DB {
   const e = emptyDB()
   return {
     v: 1,
-    vehicles: d.vehicles ?? [],
+    vehicles: (d.vehicles ?? []).map(normVehicle),
     service: d.service ?? [],
     fuel: d.fuel ?? [],
     expenses: (d.expenses ?? []).map((x) => ({ ...x, media: x.media ?? '' })),

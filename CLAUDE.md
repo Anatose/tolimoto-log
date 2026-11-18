@@ -13,7 +13,7 @@
 
 Сквозные тесты (Playwright для Python): собрать с `VITE_GOOGLE_CLIENT_ID=test`,
 отдать dist/ на порту 4174, затем `python3 e2e/run_onboarding.py`, `run_google.py`,
-`run_renew.py`. Google в них подменён `e2e/google_mock.py`.
+`run_renew.py`, `run_ownership.py` (полная стоимость, PDF), `run_archive.py` (архив, удаление). Google в них подменён `e2e/google_mock.py`.
 Кнопки искать как `button:has-text("…")`, а не `text=…` (совпадает с текстом абзацев).
 
 Публикация: каждый push в `main` → `.github/workflows/deploy.yml` (тесты, сборка, Pages).
@@ -36,8 +36,14 @@
 - `src/sheetLang.ts` — слова Google-таблицы на 7 языках (заголовки, категории, вкладка Summary),
   по шаблонам владельца «Maintenance Tables» на Google Диске. Названия вкладок — только
   английские. Чтение понимает слова любого языка; тест проверяет, что они не пересекаются.
+- `src/Owner.tsx` — полная стоимость (Vehicle.ownership: покупка, оценка или продажа; расчёт
+  `ownershipCost` в calc.ts), архив (Vehicle.archived: не в карусели, не активный, не в регламенте
+  и напоминаниях), сравнение, удаление в два шага. Удалённый транспорт запоминается на устройстве
+  (`deleted-vehicles` в kv) до записи в таблицу, чтобы не вернулся из неё.
+- `src/Export.tsx` — «История для покупателя»: печатная разметка + window.print(), запасной путь —
+  сохранить страницу файлом HTML. Фото чеков скачиваются с Диска (drive.file), если есть вход и сеть.
 - `src/Forms.tsx` — настройки; там же строка версии. При релизе менять версию и в
-  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.6.4).
+  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.7.0).
 
 ## Правила
 
