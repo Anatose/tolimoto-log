@@ -353,6 +353,8 @@ export async function disconnect(): Promise<void> {
 let uiBusy = false
 /** The app tells sync when a form or another screen is open: never leave the app then. */
 export const setUiBusy = (b: boolean) => { uiBusy = b }
+export const isUiBusy = () => uiBusy
+export const isSyncing = () => status.s === 'syncing'
 const AUTO_KEY = 'tl-auto-auth-at'
 
 /**

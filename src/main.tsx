@@ -5,9 +5,11 @@ import { loadDB } from './store'
 import { handleAuthReturn } from './google'
 import { afterAuth, initSync } from './sync'
 import { keepStorage, listenForInstall } from './Onboarding'
+import { reloadOnUpdate } from './swUpdate'
 import './styles.css'
 
 listenForInstall()
+reloadOnUpdate()
 keepStorage()
 const auth = handleAuthReturn()
 void loadDB().then(() => {

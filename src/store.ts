@@ -246,12 +246,19 @@ export async function loadDB(): Promise<void> {
   }
 }
 
+let writing = 0
+/** True while a save to IndexedDB has not finished: the page must not be reloaded then. */
+export const isSaving = () => writing > 0
+
 function save(): void {
   if (mode === 'idb') {
-    idbSet(state).catch(() => {
-      mode = 'local'
-      save()
-    })
+    writing++
+    idbSet(state)
+      .catch(() => {
+        mode = 'local'
+        save()
+      })
+      .finally(() => { writing-- })
   } else if (mode === 'local') {
     try {
       localStorage.setItem(KEY, JSON.stringify(state))
