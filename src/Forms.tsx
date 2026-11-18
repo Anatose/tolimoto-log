@@ -6,7 +6,7 @@ import { Chips, DateInput, DeleteBtn, Field, IconFuel, IconWrench, IconX, Sheet,
 import { backupNow, buildCsvZip, buildJson, importJson, saveFile, stamp } from './exportImport'
 import { backToStorageChoice, guideUrl, platform } from './Onboarding'
 
-const APP_VERSION = '0.6.3'
+const APP_VERSION = '0.6.4'
 import { addFuellyRows, guessType, lumpOverlaps, parseFuelFiles, type FuellyCar, type FuelOverlap } from './fuelly'
 import { dropToken, folderUrl, getToken, googleConfigured, sheetUrl, signIn, uploadFile } from './google'
 import { shrink } from './photos'
