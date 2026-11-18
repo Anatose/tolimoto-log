@@ -34,9 +34,36 @@ export default function App() {
   const [stack, setStack] = useState<NonNullable<Modal>[]>([])
   const modal = stack.length ? stack[stack.length - 1] : null
   useEffect(() => setUiBusy(stack.length > 0), [stack.length])
-  // Esc closes the top window (computer keyboard)
+  // computer keyboard: Esc closes, Ctrl/⌘+Enter saves, letters open forms, 1–4 switch tabs, / searches the log
+  const keyState = useRef({ stack, ready: false })
+  keyState.current = { stack, ready: !!(db.settings.lang && db.settings.onboarded && db.vehicles.length) }
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) setStack((s) => s.slice(0, -1)) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return
+      const { stack: st, ready } = keyState.current
+      if (e.key === 'Escape') { setStack((s) => s.slice(0, -1)); return }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        const b = [...document.querySelectorAll<HTMLButtonElement>('.sheet .btn.primary.big')].pop()
+        if (b && !b.disabled) { e.preventDefault(); b.click() }
+        return
+      }
+      if (!ready || e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement
+      if (el instanceof HTMLElement && el.matches('input, textarea, select, [contenteditable="true"]')) return
+      const top = st[st.length - 1]
+      if (top && top.k !== 'add') return
+      const forms: Record<string, NonNullable<Modal>> = { KeyF: { k: 'fuel' }, KeyS: { k: 'service' }, KeyE: { k: 'expense' }, KeyO: { k: 'odo' } }
+      const tabs: Record<string, Tab> = { Digit1: 'home', Digit2: 'journal', Digit3: 'sched', Digit4: 'stats' }
+      if (forms[e.code]) { e.preventDefault(); setStack([forms[e.code]]) }
+      else if (top) return
+      else if (e.code === 'KeyN') { e.preventDefault(); setStack([{ k: 'add' }]) }
+      else if (tabs[e.code]) { e.preventDefault(); setTab(tabs[e.code]) }
+      else if (e.code === 'Slash' && !e.shiftKey) {
+        e.preventDefault()
+        setTab('journal')
+        window.setTimeout(() => document.getElementById('journal-search')?.focus(), 0)
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
@@ -80,8 +107,8 @@ export default function App() {
   if (!db.vehicles.length)
     return (<NavCtx.Provider value={nav}>{modal?.k === 'fuelly' ? <FuellyImport cars={modal.cars} /> : <VehicleForm first />}</NavCtx.Provider>)
 
-  const tabBtn = (k: Tab, label: string) => (
-    <button type="button" className={'tab' + (tab === k ? ' on' : '')} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>{label}</button>
+  const tabBtn = (k: Tab, label: string, key: string) => (
+    <button type="button" className={'tab' + (tab === k ? ' on' : '')} aria-current={tab === k ? 'page' : undefined} aria-keyshortcuts={key} onClick={() => setTab(k)}>{label}<kbd className="desk">{key}</kbd></button>
   )
   return (
     <NavCtx.Provider value={nav}>
@@ -94,11 +121,11 @@ export default function App() {
         </main>
         <nav className="nav">
           <span className="brand desk"><img src="./pwa-192.png" alt="" width="32" height="32" /> Tolimoto Log</span>
-          {tabBtn('home', t('tabHome'))}
-          {tabBtn('journal', t('tabJournal'))}
-          <button type="button" className="fab" aria-label={t('add')} onClick={() => setStack([{ k: 'add' }])}><IconPlus /><span className="desk">{t('add')}</span></button>
-          {tabBtn('sched', t('tabSched'))}
-          {tabBtn('stats', t('tabStats'))}
+          {tabBtn('home', t('tabHome'), '1')}
+          {tabBtn('journal', t('tabJournal'), '2')}
+          <button type="button" className="fab" aria-label={t('add')} aria-keyshortcuts="N" onClick={() => setStack([{ k: 'add' }])}><IconPlus /><span className="desk">{t('add')}</span><kbd className="desk">N</kbd></button>
+          {tabBtn('sched', t('tabSched'), '3')}
+          {tabBtn('stats', t('tabStats'), '4')}
           <button type="button" className="tab nav-settings desk" onClick={() => setStack([{ k: 'settings' }])}><IconGear /> {t('settings')}</button>
         </nav>
         {modal && <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} />}

@@ -573,10 +573,10 @@ export function AddMenu() {
   return (
     <div className="menu-backdrop" onClick={nav.close}>
       <div className="menu" role="dialog" aria-modal="true" aria-label={t('add')} onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn primary big" onClick={() => nav.open({ k: 'fuel' })}><IconFuel /> {t('fuel')}</button>
-        <button type="button" className="btn big" onClick={() => nav.open({ k: 'service' })}><IconWrench /> {t('work')}</button>
-        <button type="button" className="btn big" onClick={() => nav.open({ k: 'expense' })}>{t('expense')}</button>
-        <button type="button" className="btn big" onClick={() => nav.open({ k: 'odo' })}>{t('odoUpdate')}</button>
+        <button type="button" className="btn primary big" onClick={() => nav.open({ k: 'fuel' })}><IconFuel /> {t('fuel')}<kbd className="desk">F</kbd></button>
+        <button type="button" className="btn big" onClick={() => nav.open({ k: 'service' })}><IconWrench /> {t('work')}<kbd className="desk">S</kbd></button>
+        <button type="button" className="btn big" onClick={() => nav.open({ k: 'expense' })}>{t('expense')}<kbd className="desk">E</kbd></button>
+        <button type="button" className="btn big" onClick={() => nav.open({ k: 'odo' })}>{t('odoUpdate')}<kbd className="desk">O</kbd></button>
         <button type="button" className="btn link" onClick={nav.close}>{t('close')}</button>
       </div>
     </div>
@@ -655,7 +655,8 @@ export function SettingsSheet() {
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <a className="btn link" href={guideUrl(db.settings.lang ?? 'ru')} target="_blank" rel="noopener">{t('help')}</a>
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
-      <p className="muted">Tolimoto Log · {t('version')} 0.6.0</p>
+      <div className="notice desk"><span><b>{t('keysTitle')}</b><br />{t('keysHelp')}</span></div>
+      <p className="muted">Tolimoto Log · {t('version')} 0.6.1</p>
     </Sheet>
   )
 }

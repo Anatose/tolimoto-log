@@ -173,7 +173,7 @@ select.input { padding-right: 40px; background-image: url("data:image/svg+xml,%3
 
 /* ---------- computer screen ---------- */
 .desk, .sheet-back { display: none; }
-.home, .home-col, .cols { display: contents; }
+.home, .home-col, .cols, .jfilters, .phone-only { display: contents; }
 @media (min-width: 900px) {
   .desk { display: revert; }
   .app { max-width: none; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
@@ -202,4 +202,30 @@ select.input { padding-right: 40px; background-image: url("data:image/svg+xml,%3
   .sheet-body { flex: 1 1 auto; min-height: 0; padding-bottom: 20px; }
   .menu-backdrop { align-items: center; }
   .menu { max-width: 420px; border-radius: 20px; }
+
+  kbd.desk { display: inline-block; margin-left: auto; min-width: 22px; padding: 1px 6px; border: 1px solid var(--sf2); border-radius: 6px; font: 600 12px/18px inherit; font-family: inherit; color: var(--mu); text-align: center; }
+  .tab { display: flex; align-items: center; }
+  .tab.on kbd, .fab kbd, .btn.primary kbd { color: inherit; border-color: currentColor; opacity: 0.7; }
+  .fab kbd.desk { margin-left: 4px; }
+  .menu .btn kbd.desk { margin-left: 6px; }
+
+  .jfilters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .jf-search { flex: 1 1 340px; }
+  .jfilters .chips { flex: none; }
+  .jf-dates { flex: 1 1 380px; }
+  .jf-tag { flex: 0 1 240px; }
+  .phone-only { display: none; }
+  .jtable-wrap { display: block; background: var(--sf); border-radius: 16px; overflow: clip; }
+  .jtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .jtable th { text-align: left; font-weight: 600; color: var(--mu); font-size: 13px; padding: 0; border-bottom: 1px solid var(--sf2); position: sticky; top: 0; background: var(--sf); }
+  .jtable th:not(:has(button)) { padding: 12px 14px; }
+  .th-btn { background: none; border: 0; color: inherit; font: inherit; padding: 12px 14px; cursor: pointer; width: 100%; text-align: inherit; }
+  .jtable td { padding: 11px 14px; border-bottom: 1px solid var(--sf2); vertical-align: top; }
+  .jtable tbody tr:last-child td { border-bottom: 0; }
+  .jtable tbody tr { cursor: pointer; }
+  .jtable tbody tr:hover, .jtable tbody tr:focus-visible { background: var(--sf2); outline: none; }
+  .jtable .r { text-align: right; }
+  .jtable .nowrap { white-space: nowrap; }
+  .jtable .wide { width: 100%; }
+  .jt-note { display: block; margin-top: 2px; }
 }

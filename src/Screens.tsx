@@ -154,7 +154,7 @@ export function Home({ goSched }: { goSched: () => void }) {
 
 /* ---------- journal ---------- */
 
-type Row = { id: string; kind: 'service' | 'fuel' | 'expense'; bucket: Exclude<Bucket, 'all'>; date: string; odo: number | null; title: string; sub: string; amount: number | null; tags: string[]; text: string; l100: number | null }
+type Row = { id: string; kind: 'service' | 'fuel' | 'expense'; bucket: Exclude<Bucket, 'all'>; date: string; odo: number | null; title: string; sub: string; type: string; note: string; amount: number | null; tags: string[]; text: string; l100: number | null }
 
 /** All records of one vehicle as list rows, newest first. */
 function useRows(vid: string | null): { rows: Row[]; avg: number | null } {
@@ -166,11 +166,11 @@ function useRows(vid: string | null): { rows: Row[]; avg: number | null } {
     const seg = new Map(segs.map((x) => [x.id, x.l100]))
     const r: Row[] = []
     for (const s of db.service) if (s.vehicleId === vid)
-      r.push({ id: s.id, kind: 'service', bucket: s.category === 'accessories' ? 'accessories' : 'service', date: s.date, odo: s.odometer, title: s.description || s.tags.map((g) => '#' + g).join(' '), sub: [t(('cat_' + s.category) as K), s.notes].filter(Boolean).join(' · '), amount: s.parts != null || s.labour != null ? (s.parts ?? 0) + (s.labour ?? 0) : null, tags: s.tags, text: [s.description, s.notes, s.tags.join(' '), s.media].join(' ').toLowerCase(), l100: null })
+      r.push({ id: s.id, kind: 'service', bucket: s.category === 'accessories' ? 'accessories' : 'service', date: s.date, odo: s.odometer, title: s.description || s.tags.map((g) => '#' + g).join(' '), sub: [t(('cat_' + s.category) as K), s.notes].filter(Boolean).join(' · '), type: t(('cat_' + s.category) as K), note: s.notes, amount: s.parts != null || s.labour != null ? (s.parts ?? 0) + (s.labour ?? 0) : null, tags: s.tags, text: [s.description, s.notes, s.tags.join(' '), s.media].join(' ').toLowerCase(), l100: null })
     for (const f of db.fuel) if (f.vehicleId === vid)
-      r.push({ id: f.id, kind: 'fuel', bucket: 'fuel', date: f.date, odo: f.odometer, title: `${t('fuel')} · ${n(f.liters, 2)} ${t('liters').toLowerCase()}`, sub: [f.full ? t('fullTank') : '', f.station].filter(Boolean).join(' · '), amount: f.total, tags: [], text: (t('fuel') + ' ' + f.station).toLowerCase(), l100: seg.get(f.id) ?? null })
+      r.push({ id: f.id, kind: 'fuel', bucket: 'fuel', date: f.date, odo: f.odometer, title: `${t('fuel')} · ${n(f.liters, 2)} ${t('liters').toLowerCase()}`, sub: [f.full ? t('fullTank') : '', f.station].filter(Boolean).join(' · '), type: t('fuel'), note: [f.full ? t('fullTank') : '', f.station].filter(Boolean).join(' · '), amount: f.total, tags: [], text: (t('fuel') + ' ' + f.station).toLowerCase(), l100: seg.get(f.id) ?? null })
     for (const e of db.expenses) if (e.vehicleId === vid)
-      r.push({ id: e.id, kind: 'expense', bucket: e.kind === 'fuel' ? 'fuel' : 'other', date: e.date, odo: null, title: t(('kind_' + e.kind) as K), sub: e.note, amount: e.amount, tags: [], text: (t(('kind_' + e.kind) as K) + ' ' + e.note).toLowerCase(), l100: null })
+      r.push({ id: e.id, kind: 'expense', bucket: e.kind === 'fuel' ? 'fuel' : 'other', date: e.date, odo: null, title: t(('kind_' + e.kind) as K), sub: e.note, type: t('expense'), note: e.note, amount: e.amount, tags: [], text: (t(('kind_' + e.kind) as K) + ' ' + e.note).toLowerCase(), l100: null })
     r.sort((a, b) => b.date.localeCompare(a.date) || (b.odo ?? 0) - (a.odo ?? 0))
     return { rows: r, avg: avgL100(segs) }
   }, [db, vid, t, n])
@@ -203,6 +203,52 @@ function RowCard({ r, avg, currency }: { r: Row; avg: number | null; currency: s
   )
 }
 
+type SortKey = 'date' | 'odo' | 'amount'
+
+/** The log as a table with columns (wide screens only). */
+function JournalTable({ rows, avg, currency }: { rows: Row[]; avg: number | null; currency: string }) {
+  const { t, n, date } = useT()
+  const nav = useNav()
+  const [sort, setSort] = useState<{ k: SortKey; up: boolean }>({ k: 'date', up: false })
+  const val = (r: Row) => (sort.k === 'date' ? r.date : sort.k === 'odo' ? r.odo ?? -1 : r.amount ?? -1)
+  const list = sort.k === 'date' && !sort.up ? rows : [...rows].sort((a, b) => {
+    const x = val(a), y = val(b)
+    const c = typeof x === 'string' ? x.localeCompare(y as string) || (a.odo ?? 0) - (b.odo ?? 0) : x - (y as number)
+    return sort.up ? c : -c
+  })
+  const th = (k: SortKey, label: string, cls = '') => (
+    <th className={cls} aria-sort={sort.k === k ? (sort.up ? 'ascending' : 'descending') : undefined}>
+      <button type="button" className="th-btn" onClick={() => setSort((s) => ({ k, up: s.k === k ? !s.up : false }))}>{label}{sort.k === k ? (sort.up ? ' ↑' : ' ↓') : ''}</button>
+    </th>
+  )
+  const open = (r: Row) => nav.push({ k: r.kind, id: r.id })
+  return (
+    <div className="jtable-wrap desk">
+      <table className="jtable">
+        <thead>
+          <tr>{th('date', t('date'))}{th('odo', t('odometer'), 'r')}<th>{t('type')}</th><th className="wide">{t('colRecord')}</th><th className="r">{t('l100')}</th>{th('amount', t('amount'), 'r')}</tr>
+        </thead>
+        <tbody>
+          {list.map((r) => (
+            <tr key={r.kind + r.id} tabIndex={0} onClick={() => open(r)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r) } }}>
+              <td className="num nowrap">{date(r.date)}</td>
+              <td className="num r nowrap">{r.odo != null ? n(r.odo) : ''}</td>
+              <td className="muted nowrap">{r.type}</td>
+              <td className="wide">
+                <span className="jt-title">{r.kind === 'fuel' ? r.title.split(' · ').slice(1).join(' · ') : r.title}</span>
+                {r.tags.length > 0 && <span className="tagline"> {r.tags.map((g) => '#' + g).join(' ')}</span>}
+                {r.note && <span className="muted small jt-note">{r.note}</span>}
+              </td>
+              <td className="r nowrap">{r.l100 != null ? <Cons l100={r.l100} avg={avg} /> : ''}</td>
+              <td className="num r nowrap"><b>{r.amount != null ? `${n(r.amount, 2)} ${currency}` : ''}</b></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function Journal() {
   const db = useDB()
   const { t, n, date } = useT()
@@ -225,19 +271,21 @@ export function Journal() {
   return (
     <>
       <h1>{t('tabJournal')} <small className="muted">· {v.name}</small></h1>
-      <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
+      <div className="jfilters">
+      <input id="journal-search" className="input jf-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('search')} aria-label={t('search')} />
       <Chips value={kind} onChange={setKind} options={[{ v: 'all', l: t('all') }, { v: 'service', l: t('fWork') }, { v: 'fuel', l: t('fFuel') }, { v: 'expense', l: t('fExp') }]} />
-      <div className="grid2">
+      <div className="grid2 jf-dates">
         <div className="field"><span className="label">{t('dateFrom')}</span><DateInput label={t('dateFrom')} value={from} max={to || undefined} onChange={setFrom} clearable /></div>
         <div className="field"><span className="label">{t('dateTo')}</span><DateInput label={t('dateTo')} value={to} min={from || undefined} onChange={setTo} clearable /></div>
       </div>
       {(from || to) && <button type="button" className="btn link" onClick={() => { setFrom(''); setTo('') }}>{t('resetDates')}</button>}
       {allTags.length > 0 && (
-        <select className="input" value={tag} onChange={(e) => setTag(e.target.value)} aria-label={t('allTags')}>
+        <select className="input jf-tag" value={tag} onChange={(e) => setTag(e.target.value)} aria-label={t('allTags')}>
           <option value="">{t('allTags')}</option>
           {allTags.map((g) => (<option key={g} value={g}>#{g}</option>))}
         </select>
       )}
+      </div>
       {(from || to) && (
         <div className="card period-total">
           <div className="total-row"><span>{t('periodSpent')}<br /><small className="muted num">{from ? date(from) : '…'} – {to ? date(to) : '…'}</small></span><b className="num">{n(sum, 2)} {v.currency}</b></div>
@@ -253,7 +301,10 @@ export function Journal() {
         </p>
       )}
       {shown.length === 0 && <p className="muted">{t('emptyJournal')}</p>}
+      {shown.length > 0 && <JournalTable rows={shown} avg={avg} currency={v.currency} />}
+      <div className="phone-only">
       {shown.map((r) => (<RowCard key={r.kind + r.id} r={r} avg={avg} currency={v.currency} />))}
+      </div>
     </>
   )
 }
