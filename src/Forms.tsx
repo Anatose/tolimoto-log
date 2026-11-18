@@ -624,7 +624,9 @@ export function SettingsSheet() {
     <Sheet title={t('settings')}>
       <div className="field">
         <span className="label">{t('language')}</span>
-        <Chips label={t('language')} value={db.settings.lang ?? 'ru'} onChange={(v) => update((d) => { d.settings.lang = v })} options={LANGS} />
+        <select className="input" aria-label={t('language')} value={db.settings.lang ?? 'ru'} onChange={(e) => { const v = e.target.value as Lang; update((d) => { d.settings.lang = v }) }}>
+          {LANGS.map((o) => (<option key={o.v} value={o.v}>{o.l}</option>))}
+        </select>
       </div>
       <div className="field">
         <span className="label">{t('theme')}</span>

@@ -91,7 +91,7 @@ export const SUM_T = {
     pl: 'Tę kartę tworzy aplikacja Tolimoto Log. Zmiany tutaj nie są zapisywane: edytuj dane na pozostałych kartach.',
   },
   odo: { ru: 'Текущий пробег, км', en: 'Current odometer, km', uk: 'Поточний пробіг, км', et: 'Praegune läbisõit, km', lv: 'Pašreizējais odometrs, km', lt: 'Dabartinis odometras, km', pl: 'Aktualny przebieg, km' },
-  sched: { ru: 'Регламент', en: 'Schedule', uk: 'Регламент', et: 'Hooldus', lv: 'Apkopes grafiks', lt: 'Priežiūros grafikas', pl: 'Harmonogram' },
+  sched: { ru: 'Регламент', en: 'Schedule', uk: 'Регламент', et: 'Hooldus', lv: 'Apkopes grafiks', lt: 'Priežiūros grafikas', pl: 'Przeglądy' },
   item: { ru: 'Узел', en: 'Item', uk: 'Вузол', et: 'Sõlm', lv: 'Mezgls', lt: 'Mazgas', pl: 'Podzespół' },
   tag: { ru: 'Тег', en: 'Tag', uk: 'Тег', et: 'Silt', lv: 'Birka', lt: 'Žyma', pl: 'Tag' },
   ikm: { ru: 'Интервал, км', en: 'Interval, km', uk: 'Інтервал км', et: 'Intervall km', lv: 'Intervāls km', lt: 'Intervalas, km', pl: 'Interwał km' },
