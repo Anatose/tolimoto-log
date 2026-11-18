@@ -15,6 +15,7 @@ class FakeGoogle:
         self.locale = 'ru_RU'
         self.input_options = []
         self.silent_mode = 'ok'
+        self.media = {}          # file id -> (content type, bytes), served by alt=media
 
     def nid(self, p): return f"{p}{next(self.ids)}"
 
@@ -36,6 +37,11 @@ class FakeGoogle:
             return await route.fulfill(status=401, body='{}')
         if u.path == '/oauth2/v3/userinfo':
             return await ok({'email': 'anatose@example.com'})
+        md = re.match(r'/drive/v3/files/([^/]+)$', u.path)
+        if md and q.get('alt') == ['media']:
+            if md.group(1) not in self.media: return await route.fulfill(status=404, body='{}')
+            ctype, data = self.media[md.group(1)]
+            return await route.fulfill(status=200, content_type=ctype, body=data)
         if u.netloc == 'www.googleapis.com' and u.path == '/drive/v3/files' and req.method == 'GET':
             qq = q['q'][0]
             role = re.search(r"value='(\w+)'", qq).group(1)

@@ -8,7 +8,7 @@
 
     npm install
     npm run dev        # локальный сервер
-    npm test           # расчёты: tsx scripts/test-calc.ts (сейчас 60 ok)
+    npm test           # расчёты: tsx scripts/test-calc.ts (сейчас 87 ok)
     npm run build      # tsc --noEmit + vite build в dist/
 
 Сквозные тесты (Playwright для Python): собрать с `VITE_GOOGLE_CLIENT_ID=test`,
@@ -40,10 +40,14 @@
   `ownershipCost` в calc.ts), архив (Vehicle.archived: не в карусели, не активный, не в регламенте
   и напоминаниях), сравнение, удаление в два шага. Удалённый транспорт запоминается на устройстве
   (`deleted-vehicles` в kv) до записи в таблицу, чтобы не вернулся из неё.
-- `src/Export.tsx` — «История для покупателя»: печатная разметка + window.print(), запасной путь —
-  сохранить страницу файлом HTML. Фото чеков скачиваются с Диска (drive.file), если есть вход и сеть.
+- `src/Export.tsx` — «История для покупателя»: настоящий PDF прямо на устройстве (window.print()
+  в установленном приложении на iPhone не работает). Рисует `src/historyPdf.ts` через jsPDF, который
+  грузится только при экспорте; шрифт — урезанный Noto Sans в `public/fonts/` (кириллица, латиница с
+  балтийскими и польскими буквами; стрелок и ≈ в нём нет). Шрифты в precache (vite.config.ts), чтобы
+  работало без сети; html2canvas, dompurify, canvg заменены пустышкой `src/jspdfStub.ts`. Фото чеков
+  скачиваются с Диска (drive.file), если есть вход и сеть, и ужимаются до 1600 px JPEG.
 - `src/Forms.tsx` — настройки; там же строка версии. При релизе менять версию и в
-  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.7.0).
+  `package.json`, и APP_VERSION в Forms.tsx (сейчас 0.7.1).
 
 ## Правила
 

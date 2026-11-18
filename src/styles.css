@@ -261,11 +261,3 @@ select.input { padding-right: 40px; background-image: url("data:image/svg+xml,%3
 .small-link { font-size: 14px; }
 .toggle-row .muted { margin-left: auto; }
 
-/* the printed service history: hidden on screen, the only thing printed */
-@media screen { body > .print-doc { display: none; } }
-@media print {
-  body.printing > :not(.print-doc) { display: none !important; }
-  :root { color-scheme: light !important; }
-  html, body { background: #fff !important; }
-  .print-doc h2 { text-align: left; flex: none; }
-}

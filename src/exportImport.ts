@@ -61,6 +61,8 @@ export async function saveFile(name: string, blob: Blob): Promise<boolean> {
       return true
     } catch (e) {
       if ((e as Error).name === 'AbortError') return false
+      // the share sheet needs a fresh tap (e.g. after a long build): the caller offers the button again
+      if ((e as Error).name === 'NotAllowedError') return false
     }
   }
   const a = document.createElement('a')

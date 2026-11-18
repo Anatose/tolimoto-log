@@ -1,7 +1,7 @@
 """Full cost of ownership and the buyer's history export, without Google.
 
 Build with VITE_GOOGLE_CLIENT_ID=test, serve dist/ on port 4174, then: python3 e2e/run_ownership.py [out_dir]
-Checks: setup screen -> Stats tile with two figures -> detail screen; export screen -> print page.
+Checks: setup screen -> Stats tile with two figures -> detail screen; export screen -> PDF file.
 """
 import asyncio, json, os, sys, tempfile
 from playwright.async_api import async_playwright
@@ -34,7 +34,7 @@ async def main():
     out, errs = {}, []
     async with async_playwright() as p:
         b = await chrome(p)
-        ctx = await b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, color_scheme='dark', service_workers='block')
+        ctx = await b.new_context(accept_downloads=True, viewport={'width': 390, 'height': 844}, device_scale_factor=2, color_scheme='dark', service_workers='block')
         pg = await ctx.new_page()
         pg.on('pageerror', lambda e: errs.append(str(e)))
         await pg.goto(APP)
@@ -72,25 +72,20 @@ async def main():
         await pg.wait_for_selector('text=История для покупателя')
         out['export_summary'] = (await pg.inner_text('.sheet .card.small')).replace('\n', ' | ')
         await pg.screenshot(path=f'{OUT}/own-4-export.png', full_page=True)
-        await pg.evaluate('window.__printed = 0; window.print = () => { window.__printed++ }')
-        await pg.click('.sheet .btn.primary.big')
-        await pg.wait_for_function('window.__printed > 0', timeout=5000)
-        out['printed'] = await pg.evaluate('window.__printed')
+        async with pg.expect_download(timeout=20000) as dl:
+            await pg.click('.sheet .btn.primary.big')
+        d = await dl.value
+        pdf_path = f'{OUT}/own-5-history.pdf'
+        await d.save_as(pdf_path)
+        data = open(pdf_path, 'rb').read()
+        out['pdf_name'] = d.suggested_filename
+        out['pdf_ok'] = data[:5] == b'%PDF-' and len(data) > 20000
+        out['pdf_pages'] = len(__import__('re').findall(rb'/Type /Page[^s]', data))
+        out['pdf_font_embedded'] = b'/FontFile2' in data
         out['photos_off_note'] = await pg.locator('.notice.warn:has-text("Фото не загрузились")').count()
-        doc = pg.locator('body > .print-doc')
-        out['doc_head'] = (await doc.locator('.pd-head').inner_text()).replace('\n', ' | ')
-        out['doc_tiles'] = (await doc.locator('.pd-tiles').inner_text()).replace('\n', ' | ')
-        out['doc_last'] = (await doc.locator('.pd-last').first.inner_text()).replace('\n', ' | ')
-        out['doc_cols'] = await doc.locator('.pd-table th').all_inner_texts()
-        out['doc_rows'] = await doc.locator('.pd-table tbody tr').count()
-        out['doc_first_row'] = (await doc.locator('.pd-table tbody tr').first.inner_text()).replace('\t', ' | ')
-        out['doc_has_sums'] = 'Сумма' in out['doc_cols']
-        out['doc_has_notes'] = await doc.locator('.pd-note').count()
-        out['app_hidden_in_print'] = await pg.evaluate("document.body.classList.contains('printing')")
-        await pg.emulate_media(media='print')
-        out['print_visible'] = await pg.evaluate("[getComputedStyle(document.querySelector('body > .print-doc')).display, getComputedStyle(document.getElementById('root')).display]")
-        await pg.pdf(path=f'{OUT}/own-5-history.pdf', format='A4', print_background=True)
-        await pg.emulate_media(media='screen')
+        out['save_again'] = await pg.locator('.sheet button:has-text("Сохранить или отправить PDF")').count()
+        out['failed_note'] = await pg.locator('.notice.warn[role=alert]').count()
+        await pg.screenshot(path=f'{OUT}/own-6-after.png', full_page=True)
         out['errors'] = errs
         for k, v in out.items(): print(k, ':', v)
         await b.close()

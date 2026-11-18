@@ -16,7 +16,7 @@ FIXTURE = {
     ],
     'service': [
         {'id': 'sa', 'vehicleId': 'va', 'date': '2025-05-01', 'odometer': 29000, 'category': 'service', 'description': 'Oil A', 'tags': ['engineoil'], 'parts': 50, 'labour': None, 'notes': '', 'media': ''},
-        {'id': 'sb', 'vehicleId': 'vb', 'date': '2025-06-01', 'odometer': 119000, 'category': 'service', 'description': 'Oil B', 'tags': ['engineoil'], 'parts': 90, 'labour': None, 'notes': '', 'media': ''},
+        {'id': 'sb', 'vehicleId': 'vb', 'date': '2025-06-01', 'odometer': 119000, 'category': 'service', 'description': 'Oil B', 'tags': ['engineoil'], 'parts': 90, 'labour': None, 'notes': '', 'media': 'https://drive.google.com/file/d/receipt7/view'},
     ],
     'fuel': [{'id': 'fa', 'vehicleId': 'va', 'date': '2025-05-02', 'odometer': 29100, 'liters': 10, 'total': 17, 'full': True, 'missed': False, 'station': ''}],
     'expenses': [], 'schedule': [],
@@ -32,10 +32,11 @@ async def main():
     fx = os.path.join(tempfile.mkdtemp(), 'fixture.json')
     json.dump(FIXTURE, open(fx, 'w'))
     g = FakeGoogle(APP)
+    g.media['receipt7'] = ('image/png', open(os.path.join(os.path.dirname(__file__), '..', 'public', 'pwa-512.png'), 'rb').read())
     out, errs = {}, []
     async with async_playwright() as p:
         b = await chrome(p)
-        ctx = await b.new_context(viewport={'width': 390, 'height': 844}, color_scheme='dark', service_workers='block')
+        ctx = await b.new_context(accept_downloads=True, viewport={'width': 390, 'height': 844}, color_scheme='dark', service_workers='block')
         for pat in ['https://accounts.google.com/**', 'https://www.googleapis.com/**', 'https://sheets.googleapis.com/**']:
             await ctx.route(pat, g.route)
         pg = await ctx.new_page()
@@ -107,7 +108,17 @@ async def main():
         db = await kv('tolimoto-log-db')
         out['old_sheet_read'] = [(v['name'], v['odometer'], v['archived'], v['ownership']) for v in db['vehicles']]
         out['old_sheet_rewritten_head'] = g.book()['Garage'][0][5:9]
-        # 5. every vehicle archived: the empty garage, with the archive on the first screen
+        # 5. the buyer's history PDF with the receipt photo downloaded from Drive
+        await pg.click('.vcard .vname >> nth=0')
+        await pg.click('.sheet button:has-text("Экспорт истории (PDF)")')
+        async with pg.expect_download(timeout=20000) as dl:
+            await pg.click('.sheet .btn.primary.big')
+        pdf = await (await dl.value).path()
+        data = open(pdf, 'rb').read()
+        out['pdf_with_photo'] = (data[:5] == b'%PDF-', b'/Subtype /Image' in data, len(data) // 1000)
+        out['pdf_photo_failed_note'] = await pg.locator('.notice.warn:has-text("Фото не загрузились")').count()
+        await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape')
+        # 6. every vehicle archived: the empty garage, with the archive on the first screen
         await pg.click('.vcard .vname >> nth=0')
         await pg.click('.sheet button:has-text("В архив")')
         await pg.wait_for_selector('text=Добавьте первый транспорт')
