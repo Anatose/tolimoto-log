@@ -151,7 +151,7 @@ export const lv: Pack = {
     inAnd1: 'Atveriet Chrome izvēlni — trīs punkti augšā pa labi.',
     inAnd2: 'Izvēlieties “Instalēt lietotni” vai “Pievienot sākuma ekrānam”.',
     inAnd3: 'Atveriet Tolimoto Log no ikonas.',
-    inDesk: 'Lietotne ir paredzēta tālrunim. Atveriet app.tolimoto.com tālrunī un instalējiet to tur.',
+    inDesk: 'Datorā lietotne darbojas tieši pārlūkā. Pievienojiet Google, un ieraksti būs kopīgi ar tālruni. Instalēt to kā lietotni var, bet nav obligāti.',
     inWhy: 'Šeit pārlūkā ievadītie ieraksti nepāries uz instalēto lietotni. Tāpēc vispirms instalējiet, tad rakstiet.',
     inInstall: 'Instalēt',
     inGuide: 'Pamācība ar attēliem',

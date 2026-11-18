@@ -151,7 +151,7 @@ export const pl: Pack = {
     inAnd1: 'Otwórz menu Chrome — trzy kropki w prawym górnym rogu.',
     inAnd2: 'Wybierz „Zainstaluj aplikację” lub „Dodaj do ekranu głównego”.',
     inAnd3: 'Otwórz Tolimoto Log z ikony.',
-    inDesk: 'Aplikacja jest zrobiona na telefon. Otwórz app.tolimoto.com na telefonie i zainstaluj ją tam.',
+    inDesk: 'Na komputerze aplikacja działa po prostu w przeglądarce. Połącz Google, a wpisy będą wspólne z telefonem. Można ją zainstalować jako program, ale nie trzeba.',
     inWhy: 'Wpisy dodane tutaj, w przeglądarce, nie przejdą do zainstalowanej aplikacji. Dlatego najpierw zainstaluj, potem zapisuj.',
     inInstall: 'Zainstaluj',
     inGuide: 'Instrukcja z obrazkami',

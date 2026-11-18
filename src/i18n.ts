@@ -185,7 +185,7 @@ export const S = {
   inAnd1: ['Откройте меню Chrome — три точки справа вверху.', 'Open the Chrome menu — the three dots at the top right.'],
   inAnd2: ['Выберите «Установить приложение» или «Добавить на главный экран».', 'Choose “Install app” or “Add to Home screen”.'],
   inAnd3: ['Откройте Tolimoto Log с иконки.', 'Open Tolimoto Log from its icon.'],
-  inDesk: ['Приложение сделано для телефона. Откройте app.tolimoto.com на телефоне и установите его там.', 'The app is made for phones. Open app.tolimoto.com on your phone and install it there.'],
+  inDesk: ['На компьютере приложение работает прямо в браузере. Подключите Google — и записи будут общими с телефоном. Установить его как программу можно, но не обязательно.', 'On a computer the app works right in the browser. Connect Google and your records are shared with your phone. Installing it as an app is optional.'],
   inWhy: ['Записи, внесённые здесь, в браузере, не перейдут в установленное приложение. Поэтому сначала установите, потом записывайте.', 'Records entered here in the browser won’t carry over to the installed app. So install first, then log.'],
   inInstall: ['Установить', 'Install'],
   inGuide: ['Инструкция с картинками', 'Step-by-step guide'],

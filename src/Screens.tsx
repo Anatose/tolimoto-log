@@ -67,9 +67,9 @@ function Carousel() {
         </section>
       </div>
       {db.vehicles.length > 1 && (
-        <div className="dots" aria-hidden="true">
-          {db.vehicles.map((v) => (<span key={v.id} className={v.id === active ? 'on' : ''} style={v.id === active ? { background: v.color } : undefined} />))}
-          <span />
+        <div className="dots">
+          {db.vehicles.map((v) => (<button type="button" key={v.id} aria-label={v.name} aria-current={v.id === active ? 'true' : undefined} className={v.id === active ? 'on' : ''} style={v.id === active ? { background: v.color } : undefined} onClick={() => update((d) => { d.settings.activeVehicleId = v.id })} />))}
+          <button type="button" aria-label={t('addVehicle')} onClick={() => ref.current?.scrollTo({ left: ref.current.scrollWidth, behavior: 'smooth' })} />
         </div>
       )}
     </>
@@ -123,9 +123,13 @@ export function Home({ goSched }: { goSched: () => void }) {
         <SyncPill />
         <button type="button" className="icon-btn" aria-label={t('settings')} onClick={() => nav.open({ k: 'settings' })}><IconGear /></button>
       </header>
+      <div className="home">
+      <div className="home-col">
       <Carousel />
       <button type="button" className="btn primary fuel-btn" onClick={() => nav.open({ k: 'fuel' })}><IconFuel /> {t('fuel')} · {v.name}</button>
       <BackupReminder />
+      </div>
+      <div className="home-col">
       <div className="split head">
         <h3>{t('upcoming')}</h3>
         <button type="button" className="btn link" onClick={goSched}>{t('allSched')}</button>
@@ -141,6 +145,8 @@ export function Home({ goSched }: { goSched: () => void }) {
       <div className="grid2">
         <button type="button" className="card tile row-btn" onClick={() => nav.push({ k: 'spend', vid, year, bucket: 'all' })}><span className="label">{t('spent')} {year} ›</span><b className="num">{n(tot.total, 0)} {v.currency}</b></button>
         <div className="card tile"><span className="label">{t('avgCons')}</span>{avg != null ? <b className="num">{n(avg, 1)} <small>{t('l100')}</small></b> : <span className="small">{t('avgConsEmpty')}</span>}</div>
+      </div>
+      </div>
       </div>
     </>
   )
@@ -297,6 +303,7 @@ export function Schedule() {
       </div>
       <p className="muted num">{v.name} · {n(currentOdo(db, vid))} {t('km')}</p>
       {list.length === 0 && <p className="muted">{t('emptySched')}</p>}
+      <div className="cols">
       {list.map((s) => {
         const open = openId === s.item.id
         const every = [s.item.intervalKm ? `${n(s.item.intervalKm)} ${t('km')}` : '', s.item.intervalDays ? `${n(s.item.intervalDays)} ${t('days')}` : ''].filter(Boolean).join(` ${t('or')} `)
@@ -322,6 +329,7 @@ export function Schedule() {
           </div>
         )
       })}
+      </div>
     </>
   )
 }
@@ -370,6 +378,7 @@ export function Stats() {
     <>
       <h1>{t('tabStats')} <small className="muted">· {v.name}</small></h1>
       <Chips value={year} onChange={setYear} options={[...ys.map((y) => ({ v: String(y), l: String(y) })), { v: 'all', l: t('all') }]} />
+      <div className="cols">
       <div className="card">
         {rows.map(([k, x]) => (
           <button type="button" className="stat-row row-btn bare" key={k} onClick={() => nav.push({ k: 'spend', vid, year: y, bucket: k })}>
@@ -383,9 +392,12 @@ export function Stats() {
         <div className="card tile"><span className="label">{t('perKm')}</span><b className="num">{perKm != null ? `${n(perKm, 2)} ${v.currency}` : '—'}</b><span className="muted small">{t('perKmNote')}</span></div>
         <div className="card tile"><span className="label">{t('avgCons')}</span>{avg != null ? <b className="num">{n(avg, 1)} <small>{t('l100')}</small></b> : <span className="small">{t('avgConsEmpty')}</span>}</div>
       </div>
+      </div>
       {segs.length < 2 && prices.length < 2 && <p className="muted">{t('noFuelStats')}</p>}
+      <div className="cols">
       <LineChart points={segs.map((s) => s.l100)} label={t('consChart')} unit={t('l100')} digits={1} />
       <LineChart points={prices} label={t('priceChart')} unit={v.currency} digits={3} />
+      </div>
     </>
   )
 }

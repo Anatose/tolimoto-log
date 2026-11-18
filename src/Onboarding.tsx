@@ -75,7 +75,7 @@ export function InstallIntro() {
   return (
     <div className="center-screen onboard">
       <img src="./pwa-192.png" alt="" width="88" height="88" className="ob-icon" />
-      <h1>{t('inTitle')}</h1>
+      <h1>{p === 'desktop' ? 'Tolimoto Log' : t('inTitle')}</h1>
       <p className="muted">{p === 'desktop' ? t('inDesk') : t('inLead')}</p>
       {p === 'ios-other' && <div className="notice warn"><span>{t('inIosOther')}</span></div>}
       {steps.length > 0 && (
@@ -88,7 +88,7 @@ export function InstallIntro() {
       {p !== 'desktop' && <div className="notice warn"><span>{t('inWhy')}</span></div>}
       {installEvent && <button type="button" className="btn primary big" onClick={() => void install()}>{t('inInstall')}</button>}
       <a className="btn" href={guideUrl(lang, 'install')} target="_blank" rel="noopener">{t('inGuide')}</a>
-      <button type="button" className="btn link" onClick={done}>{t('inSkip')}</button>
+      <button type="button" className={p === 'desktop' ? 'btn primary big' : 'btn link'} onClick={done}>{t('inSkip')}</button>
     </div>
   )
 }

@@ -655,7 +655,7 @@ export function SettingsSheet() {
       {!standalone && <div className="notice"><span><b>{t('installTitle')}</b><br />{t('installText')}</span></div>}
       <a className="btn link" href={guideUrl(db.settings.lang ?? 'ru')} target="_blank" rel="noopener">{t('help')}</a>
       {!googleConfigured() && <p className="muted">{t('gNotConfigured')}</p>}
-      <p className="muted">Tolimoto Log · {t('version')} 0.5.1</p>
+      <p className="muted">Tolimoto Log · {t('version')} 0.6.0</p>
     </Sheet>
   )
 }

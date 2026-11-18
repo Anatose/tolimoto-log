@@ -42,6 +42,8 @@ export function Sheet(p: { title: string; color?: string; children: ReactNode; n
   const nav = useNav()
   const { t } = useT()
   return (
+    <>
+    <div className="sheet-back" aria-hidden="true" />
     <div className="sheet" role="dialog" aria-modal="true" aria-label={p.title}>
       <div className="sheet-head" style={p.color ? { borderTopColor: p.color } : undefined}>
         {p.onBack ? (
@@ -60,6 +62,7 @@ export function Sheet(p: { title: string; color?: string; children: ReactNode; n
       </div>
       <div className="sheet-body">{p.children}</div>
     </div>
+    </>
   )
 }
 

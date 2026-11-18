@@ -151,7 +151,7 @@ export const et: Pack = {
     inAnd1: 'Ava Chrome’i menüü — kolm punkti üleval paremal.',
     inAnd2: 'Vali „Installi rakendus” või „Lisa avaekraanile”.',
     inAnd3: 'Ava Tolimoto Log ikoonilt.',
-    inDesk: 'Rakendus on tehtud telefonile. Ava app.tolimoto.com telefonis ja paigalda see seal.',
+    inDesk: 'Arvutis töötab rakendus otse brauseris. Ühenda Google – ja kirjed on telefoniga ühised. Rakendusena paigaldada võib, aga see pole kohustuslik.',
     inWhy: 'Siin brauseris sisestatud kirjed paigaldatud rakendusse üle ei lähe. Seega paigalda kõigepealt, siis kirjuta.',
     inInstall: 'Paigalda',
     inGuide: 'Pildiga juhend',

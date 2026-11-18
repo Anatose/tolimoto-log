@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { update, useDB, useLoaded } from './store'
 import { setUiBusy } from './sync'
 import { relabelPresets, useT } from './i18n'
-import { IconPlus, NavCtx, type Modal } from './ui'
+import { IconGear, IconPlus, NavCtx, type Modal } from './ui'
 import { Home, Journal, Schedule, SpendList, Stats } from './Screens'
 import { DataSafety, InstallIntro, Tour, isStandalone } from './Onboarding'
 import { AddMenu, ExpenseForm, FuelForm, FuellyImport, History, LangPick, OdoForm, SchedForm, ServiceForm, SettingsSheet, VehicleForm } from './Forms'
@@ -34,6 +34,12 @@ export default function App() {
   const [stack, setStack] = useState<NonNullable<Modal>[]>([])
   const modal = stack.length ? stack[stack.length - 1] : null
   useEffect(() => setUiBusy(stack.length > 0), [stack.length])
+  // Esc closes the top window (computer keyboard)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) setStack((s) => s.slice(0, -1)) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const started = useRef(false)
   const nav = useMemo(() => ({
     open: (m: Modal) => setStack((s) => (m ? [...s.slice(0, -1), m] : s.slice(0, -1))),
@@ -87,11 +93,13 @@ export default function App() {
           {tab === 'stats' && <Stats />}
         </main>
         <nav className="nav">
+          <span className="brand desk"><img src="./pwa-192.png" alt="" width="32" height="32" /> Tolimoto Log</span>
           {tabBtn('home', t('tabHome'))}
           {tabBtn('journal', t('tabJournal'))}
-          <button type="button" className="fab" aria-label={t('add')} onClick={() => setStack([{ k: 'add' }])}><IconPlus /></button>
+          <button type="button" className="fab" aria-label={t('add')} onClick={() => setStack([{ k: 'add' }])}><IconPlus /><span className="desk">{t('add')}</span></button>
           {tabBtn('sched', t('tabSched'))}
           {tabBtn('stats', t('tabStats'))}
+          <button type="button" className="tab nav-settings desk" onClick={() => setStack([{ k: 'settings' }])}><IconGear /> {t('settings')}</button>
         </nav>
         {modal && <ModalHost key={stack.length + (modal.k === 'fuelly' ? 'fuelly' : JSON.stringify(modal))} m={modal} />}
       </div>

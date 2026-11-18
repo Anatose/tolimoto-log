@@ -151,7 +151,7 @@ export const lt: Pack = {
     inAnd1: 'Atidarykite Chrome meniu — trys taškai viršuje dešinėje.',
     inAnd2: 'Pasirinkite „Įdiegti programą“ arba „Pridėti prie pagrindinio ekrano“.',
     inAnd3: 'Atidarykite Tolimoto Log iš piktogramos.',
-    inDesk: 'Programėlė sukurta telefonui. Atidarykite app.tolimoto.com telefone ir įdiekite ją ten.',
+    inDesk: 'Kompiuteryje programėlė veikia tiesiog naršyklėje. Prijunkite Google – ir įrašai bus bendri su telefonu. Įdiegti ją kaip programą galima, bet nebūtina.',
     inWhy: 'Čia, naršyklėje, įvesti įrašai į įdiegtą programėlę neperkeliami. Todėl pirma įdiekite, paskui rašykite.',
     inInstall: 'Įdiegti',
     inGuide: 'Vadovas su paveikslėliais',
